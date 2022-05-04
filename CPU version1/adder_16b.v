@@ -25,7 +25,7 @@ module adder_16b(
 	input 	[15:0]	src2,
 	input			carryin,
 	output 	[15:0]	res,
-	output			carryout,
+	output			carryout
     );
 	
 	wire 	[15:0]	p;
