@@ -39,9 +39,13 @@ wire ctl_dataRam_en;
 wire ctl_dataRam_wen;
     
 wire [2:0] ctl_rfWriteData_mux;
-wire [3:0] ctl_rfWriteAddr_mux;
-wire ctl_rfWriteHigh_en;
+wire [2:0] ctl_rfWriteAddr_mux;
+
 wire ctl_rf_wen;
+
+wire ctl_low_wen;
+wire ctl_high_wen;
+wire ctl_temp_wen;
 
 CPU CPU1(
     .opcode(opcode), .funct(funct), .rt(rt),
@@ -49,8 +53,9 @@ CPU CPU1(
     .ctl_instRam_en(ctl_instRam_en), .ctl_instRam_wen(ctl_instRam_wen),
     .ctl_aluSrc1_mux(ctl_aluSrc1_mux), .ctl_aluSrc2_mux(ctl_aluSrc2_mux), .ctl_alu_mux(ctl_alu_mux),
     .ctl_dataRam_en(ctl_dataRam_en), .ctl_dataRam_wen(ctl_dataRam_wen),
-    .ctl_rfWriteData_mux(ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ctl_rfWriteAddr_mux), 
-    .ctl_rfWriteHigh_en(ctl_rfWriteHigh_en), .ctl_rf_wen(ctl_rf_wen)
+    .ctl_rfWriteData_mux(ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ctl_rfWriteAddr_mux),
+    .ctl_rf_wen(ctl_rf_wen),
+    .ctl_low_wen(ctl_low_wen), .ctl_high_wen(ctl_high_wen), .ctl_temp_wen(ctl_temp_wen)
 );
 
 initial begin
