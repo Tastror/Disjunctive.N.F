@@ -91,16 +91,24 @@ module ALU(
 	assign srl_result = alu_src2 >> alu_src1[4:0];
 	assign sra_result = ($signed(alu_src2)) >>> alu_src1[4:0];
 	
-	assign alu_result = 	({32{op_add|op_sub}} & add_sub_result)
-						|	({32{op_slt}}		 & slt_result)
-						|	({32{op_sltu}}		 & sltu_result)
-						|	({32{op_and}}		 & and_result)
-						|	({32{op_nor}}		 & nor_result)
-						|	({32{op_or}}		 & or_result)
-						|	({32{op_xor}}		 & xor_result)
-						|	({32{op_sll}}		 & sll_result)
-						|	({32{op_srl}}		 & srl_result)
-						|	({32{op_sra}}		 & sra_result)
-						|	({32{op_lui}}		 & lui_result);
+	assign alu_result = 	(
+							(({32{op_add|op_sub}} & add_sub_result)
+						|	({32{op_slt}}		 & slt_result))
+						|	(({32{op_sltu}}		 & sltu_result)
+						|	({32{op_and}}		 & and_result))
+							) 
+							| 
+							(
+							(({32{op_nor}}		 & nor_result)
+						|	({32{op_or}}		 & or_result))
+						|	(({32{op_xor}}		 & xor_result)
+						|	({32{op_sll}}		 & sll_result))
+							)
+							|
+							(
+							(({32{op_srl}}		 & srl_result)
+						|	({32{op_sra}}		 & sra_result))
+						|	({32{op_lui}}		 & lui_result)
+							);
 	
 endmodule

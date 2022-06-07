@@ -44,6 +44,12 @@ module CPU(
     output wire ctl_rf_wen
 );
 
+asfasfsaf
+
+RAM RAM1();
+
+RAM RAM1();
+
 ID_control ID_control_1(
     .opcode(opcode), .funct(funct), .rt(rt),
     .ctl_pcValue_mux(ctl_pcValue_mux),
