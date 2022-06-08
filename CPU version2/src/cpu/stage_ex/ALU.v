@@ -27,21 +27,44 @@ module ALU(
 	output 	[31:0] 		alu_result
     );
 	
-	//现在有12个操作
-	wire 				op_add; 	//加法操作
-	wire 				op_sub;		//减法操作
-	wire				op_slt;		//有符号比较，小于置位
-	wire 				op_sltu;	//无符号比较，小于置位
-	wire 				op_and; 	//按位与?
-	wire				op_nor;		//按位与非
-	wire 				op_or;		//按位或?
-	wire 				op_xor;		//按位异或
-	wire				op_sll; 	//逻辑左移，shift left logical
-	wire 				op_srl;		//逻辑右移，shift right logical
-	wire 				op_sra;		//算术右移，shift right arithmetic
-	wire 				op_lui; 	//高位加载，load upper immediate	注意输入为src2
+	//现在有20个操作
+	// wire 				op_add; 	//加法操作
+	// wire 				op_sub;		//减法操作
+	// wire				op_slt;		//有符号比较，小于置位
+	// wire 				op_sltu;	//无符号比较，小于置位
+	// wire 				op_and; 	//按位与?
+	// wire				op_nor;		//按位与非
+	// wire 				op_or;		//按位或?
+	// wire 				op_xor;		//按位异或
+	// wire				op_sll; 	//逻辑左移，shift left logical
+	// wire 				op_srl;		//逻辑右移，shift right logical
+	// wire 				op_sra;		//算术右移，shift right arithmetic
+	// wire 				op_lui; 	//高位加载，load upper immediate	注意输入为src2
 	
-	//11个存储结果的寄存器，空间换时间?
+// {
+//     0:+,
+//     1:-,
+//     2:slt,
+//     3:sltu,
+//     4:与,
+//     5:或非,
+//     6:or或,
+//     7:xor异或,
+//     8:sll逻辑左移,
+//     9:srl逻辑右移,
+//     10:sra算术右移,
+//     11:lui高位加载,
+//     12:llo低位加载,
+//     13:乘,
+//     14:bltz,
+//     15:blez,
+//     16:bgtz,
+//     17:bgez,
+//     18:beq,
+//     19:bneq
+// }
+
+	//19个存储结果的寄存器
 	wire 	[31:0]	 	add_sub_result;
 	wire 	[31:0]		slt_result;
 	wire 	[31:0]	 	sltu_result;
@@ -53,6 +76,14 @@ module ALU(
 	wire 	[31:0]	 	srl_result;
 	wire 	[31:0]	 	sra_result;
 	wire 	[31:0]	 	lui_result;
+	wire 	[31:0]	 	lio_result;
+	wire 	[31:0]	 	mult_result;
+	wire 	[31:0]	 	bltz_result;
+	wire 	[31:0]	 	blez_result;
+	wire 	[31:0]	 	bgtz_result;
+	wire 	[31:0]	 	bgez_result;
+	wire 	[31:0]	 	beq_result;
+	wire 	[31:0]	 	bneq_result;
 	
 	//{and, nor, or, xor, lui}
 	assign and_result = alu_src1 & alu_src2;
