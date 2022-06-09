@@ -40,8 +40,8 @@ always @(*) begin
         pc_next <= PC_INITIAL;
     end
     else if(enable) begin
-        // 测试,异常,旁路,正常加4
-        assign pc_next = is_debug ? debug_new_pc :
+        // 测试,异常,旁路,正常�?4
+        pc_next <= is_debug ? debug_new_pc :
                          is_exception ? exception_new_pc :
                          is_branch ? branch_address :
                          pc_reg + 32'd4;

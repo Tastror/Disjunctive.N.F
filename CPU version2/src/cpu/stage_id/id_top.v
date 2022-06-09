@@ -16,37 +16,47 @@ module id_top(
     MemWrite,
     MemToReg,
     //input
-    dist,
+    inst,
     enable,
     rst_n
 );
 
-input [31:0] dist;
-input enable;
-input rst_n;
+input wire [31:0] inst;
+input wire enable;
+input wire rst_n;
 
-output [4:0] rs;
-output [4:0] rt;
-output [4:0] rd;
-output [4:0] shamt;
-output [15:0] imm;
-output [25:0] instr_index;
+output reg [4:0] rs;
+output reg [4:0] rt;
+output reg [4:0] rd;
+output reg [4:0] shamt;
+output reg [15:0] imm;
+output reg [25:0] instr_index;
 
-wire [5:0] funct;
-wire [5:0] op;
+output reg RegWrite;
+output reg [1:0] RegDst;
+output reg ALUSrc;
+output reg [5:0] ALUOp;
+output reg MemRead;
+output reg MemWrite;
+output reg MemToReg;
 
-assign op = inst[31:26];
-assign rs = inst[25:21];
-assign rt = inst[20:16];
-assign rd = inst[15:11];
-assign shamt = inst[10:6];
-assign funct = inst[5:0];
+reg [5:0] funct;
+reg [5:0] op;
 
-assign imm = inst[15:0];
-assign instr_index[25:0];
-assign code = inst[25:6];
+always @(*) begin
+    assign op = inst[31:26];
+    assign rs = inst[25:21];
+    assign rt = inst[20:16];
+    assign rd = inst[15:11];
+    assign shamt = inst[10:6];
+    assign funct = inst[5:0];
+    
+    assign imm = inst[15:0];
+    assign instr_index = inst[25:0];
+//    assign code = inst[25:6];
+end
 
-id_control #(
+id_control d(
     .op (op),
     .funct (funct),
     .rt (rt),
@@ -57,6 +67,8 @@ id_control #(
     .MemRead (MemRead),
     .MemWrite (MemWrite),
     .MemToReg (MemToReg)
-)
+);
 
 endmodule
+
+

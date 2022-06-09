@@ -4,8 +4,8 @@
 
 module mem(
     //output
-    ram_re,//ram读使能
-    ram_we,//ram写使能
+    ram_re,//ram读使�?
+    ram_we,//ram写使�?
     ram_address,//ram读或写的地址
     ram_data,//要写入的data
     //input
@@ -15,20 +15,22 @@ module mem(
     mem_address//地址
 );
 
-wire ram_re;
-wire ram_we;
-wire [31:0] ram_address;
-wire [31:0] ram_data;
+output reg ram_re;
+output reg ram_we;
+output reg [31:0] ram_address;
+output reg [31:0] ram_data;
 
-wire MemRead;
-wire MemWrite;
-wire mem_wdata;
-wire mem_address;
+input wire MemRead;
+input wire MemWrite;
+input wire mem_wdata;
+input wire mem_address;
 
-assign ram_address = mem_address;
-assign ram_data = mem_wdata;
-
-assign ram_re = MemRead;
-assign ram_we = MemWrite;
+always @(*) begin
+    assign ram_address = mem_address;
+    assign ram_data = mem_wdata;
+    
+    assign ram_re = MemRead;
+    assign ram_we = MemWrite;
+end
 
 endmodule
