@@ -1,40 +1,24 @@
-// å¯„å­˜å™¨å †
+// ¼Ä´æÆ÷¶Ñ
 
 module regs(
-//output
-    rdata1,
-    rdata2,
-    rdata3,
-//input
-    clk,
-    rst_n,
-    we,
-    waddr,
-    wdata,
-    raddr1,
-    raddr2,
-    raddr3
+    //input
+    input wire clk,
+    input wire rst_n,
+    input wire we,
+    input wire [4:0] waddr,
+    input wire [31:0] wdata,
+    input wire [4:0] raddr1,
+    input wire [4:0] raddr2,
+    input wire [4:0] raddr3,
+    //output
+    output wire [31:0] rdata1,
+    output wire [31:0] rdata2,
+    output wire [31:0] rdata3
 );
 
-input wire clk;
-input wire rst_n;
+reg [31:0] registers [0:31];
 
-input wire we;
-input wire[4:0] waddr;
-input wire[31:0] wdata;
-
-input wire[4:0] raddr1;
-output reg[31:0] rdata1;
-
-input wire[4:0] raddr2;
-output reg[31:0] rdata2;
-
-input wire[4:0] raddr3;
-output reg[31:0] rdata3;
-
-reg[31:0] registers[0:31];
-
-always @(posedge clk) begin
+always @ (posedge clk) begin
     if(!rst_n) begin
         registers[0] <= 32'b0;
         registers[1] <= 32'b0;
@@ -69,36 +53,17 @@ always @(posedge clk) begin
         registers[30] <= 32'b0;
         registers[31] <= 32'b0;
     end
-    else if(we && waddr!=5'h0) begin
+    else if (we && waddr != 5'h0) begin
         registers[waddr] <= wdata;
     end
 end
 
-always @(*) begin
-    if(raddr1 == 32'b0)
-        rdata1 <= 32'b0;
-    else if(raddr1 == waddr && we)
-        rdata1 <= wdata;
-    else
-        rdata1 <= registers[raddr1];
-end
-
-always @(*) begin
-    if(raddr2 == 32'b0)
-        rdata2 <= 32'b0;
-    else if(raddr2 == waddr && we)
-        rdata2 <= wdata;
-    else
-        rdata2 <= registers[raddr2];
-end
-
-always @(*) begin
-    if(raddr3 == 32'b0)
-        rdata3 <= 32'b0;
-    else if(raddr3 == waddr && we)
-        rdata3 <= wdata;
-    else
-        rdata3 <= registers[raddr3];
-end
+wire ans1, ans2, ans3;
+assign ans1 = (raddr1 == waddr) & we;
+assign rdata1 = registers[raddr1] & {32{~ans1}} | wdata & {32{ans1}};
+assign ans2 = (raddr2 == waddr) & we;
+assign rdata2 = registers[raddr2] & {32{~ans2}} | wdata & {32{ans2}};
+assign ans3 = (raddr3 == waddr) & we;
+assign rdata3 = registers[raddr3] & {32{~ans3}} | wdata & {32{ans3}};
 
 endmodule

@@ -22,6 +22,7 @@
 
 module WaitRegs(
     input wire clk,
+    input wire en,
 
     input wire i1,
     input wire i2,
@@ -76,30 +77,32 @@ module WaitRegs(
 
 always @ (posedge clk)
 begin
-    o1 <= i1;
-    o2 <= i2;
-    o3 <= i3;
-    o4 <= i4;
-    o5 <= i5;
-    o6 <= i6;
-    o7 <= i7;
-    o8 <= i8;
-    o51 <= i51;
-    o52 <= i52;
-    o61 <= i61;
-    o62 <= i62;
-    o81 <= i81;
-    o82 <= i82;
-    o83 <= i83;
-    o84 <= i84;
-    o161 <= i161;
-    o162 <= i162;
-    o163 <= i163;
-    o164 <= i164;
-    o321 <= i321;
-    o322 <= i322;
-    o323 <= i323;
-    o324 <= i324;
+    if (en) begin
+        o1 <= i1;
+        o2 <= i2;
+        o3 <= i3;
+        o4 <= i4;
+        o5 <= i5;
+        o6 <= i6;
+        o7 <= i7;
+        o8 <= i8;
+        o51 <= i51;
+        o52 <= i52;
+        o61 <= i61;
+        o62 <= i62;
+        o81 <= i81;
+        o82 <= i82;
+        o83 <= i83;
+        o84 <= i84;
+        o161 <= i161;
+        o162 <= i162;
+        o163 <= i163;
+        o164 <= i164;
+        o321 <= i321;
+        o322 <= i322;
+        o323 <= i323;
+        o324 <= i324;
+    end
 end
 
 endmodule
