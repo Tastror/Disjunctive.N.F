@@ -2,7 +2,7 @@
 
 
 
-module ID_control(
+module id_control(
     input wire [5:0] opcode,
     input wire [5:0] funct,
     input wire [5:0] rt,

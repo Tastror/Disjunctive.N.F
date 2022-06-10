@@ -179,7 +179,7 @@ WaitRegs IF_ID_wait(
 
 
 
-ID_data id_data_0(
+id_data id_data_0(
     // input
     .instruction(ID_instruction),
     // output
@@ -189,7 +189,7 @@ ID_data id_data_0(
 
 assign ID_imm_32 = {{16{ID_imm[15]}}, ID_imm};
 
-ID_control ID_control_1(
+id_control id_control_1(
     // input
     .opcode(ID_opcode), .funct(ID_funct), .rt(ID_rt),
     // output

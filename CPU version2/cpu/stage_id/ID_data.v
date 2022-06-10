@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module ID_data(
+module id_data(
     input wire [31:0] instruction,
     output wire [5:0] opcode,
     output wire [5:0] funct,
