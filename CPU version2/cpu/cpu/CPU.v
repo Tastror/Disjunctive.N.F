@@ -55,7 +55,7 @@ module CPU(
     input wire debug,
     input wire inst_ram_write_enable,
     input wire [31:0] inst_ram_write_data,
-    input wire [15:0] inst_ram_write_address,
+    input wire [31:0] inst_ram_write_address,
     // normal in
     input wire reset,
     input wire clk,
@@ -102,8 +102,8 @@ pc_in_if pc_if_0(
     .pc_out(IFe_pc), .pc_plus_4(IFe_pc_plus_4)
 );
 
-wire [15:0] IF_pc_or_debug;
-assign IF_pc_or_debug = inst_ram_write_address & {16{debug}} | IFe_pc & {16{~debug}};
+wire [31:0] IF_pc_or_debug;
+assign IF_pc_or_debug = inst_ram_write_address & {32{debug}} | IFe_pc & {32{~debug}};
 
 instruction_RAM inst_RAM_0(
     // debug in
