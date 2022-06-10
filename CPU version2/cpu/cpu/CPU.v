@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+
 //////////////////////////////////////////////////////////////////////////////////
 // Company: Disjunctive.N.F
 // Engineer: Tastror
@@ -20,16 +21,17 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
+
 // ! important !
 //
 // [name rule]
 //     environment (begin with little case):
 //         clk, reset, debug, io_show, ...
-//     usually (begin with capital):
+//     normal (begin with capital):
 //         IF_xxx, ID_xxx, EX_xxx, ME_xxx, WB_xxx
 //
 // [input and output rule]
-//     usually:
+//     normal:
 //         module_name(
 //             // input
 //             .x1(_x1), ,x2(_x2),
@@ -38,13 +40,15 @@
 //         );
 //     for reg wait:
 //         module_name(
-//             .clk(clk),
+//             .clk(clk), .en(1), .rst(0 or reset)
 //             // in-out pair
-//             .i1(_x1), ,o1(_y1),
-//             .i2(_x2), ,o2(_y2)
+//             .i1(_x1), .o1(_y1),
+//             .i2(_x2), .o2(_y2)
 //         );
 //
 // ! important !
+
+
 
 module CPU(
     // debug in
@@ -165,7 +169,7 @@ instruction_RAM inst_RAM_0(
 
 
 WaitRegs IF_ID_wait(
-    .clk(clk), .en(1),
+    .clk(clk), .en(1), .rst(0),
     // in-out pair
     .i321(IF_instruction), .o321(ID_instruction),
     .i322(IF_pc_plus_4), .o322(ID_pc_plus_4)
@@ -198,7 +202,7 @@ ID_control ID_control_1(
 
 regs regs_0(
     // input
-    .clk(clk), .rst_n(reset),
+    .clk(clk), .rst(reset),
     .we(WB_ctl_rf_wen), .waddr(WB_reg_waddr), .wdata(WB_reg_wdata),
     .raddr1(ID_rs), .raddr2(ID_sa), .raddr3(ID_rt),
     // output
@@ -209,9 +213,8 @@ regs regs_0(
 
 
 
-
 WaitRegs ID_EXE_wait(
-    .clk(clk), .en(1),
+    .clk(clk), .en(1), .rst(0),
     // in-out pair
     .i1(ID_ctl_dataRam_en), .o1(EX_ctl_dataRam_en),
     .i2(ID_ctl_dataRam_wen), .o2(EX_ctl_dataRam_wen),
@@ -261,7 +264,7 @@ ALU ALU_0(
 
 
 WaitRegs EXE_MEM_wait(
-    .clk(clk), .en(1),
+    .clk(clk), .en(1), .rst(reset),
     // in-out pair
     .i1(EX_ctl_dataRam_en), .o1(ME_ctl_dataRam_en),
     .i2(EX_ctl_dataRam_wen), .o2(ME_ctl_dataRam_wen),
@@ -290,7 +293,7 @@ pc_in_mem pc_in_mem(
 data_RAM data_RAM_0(
     // in
     .clk(clk), .en(ME_ctl_dataRam_en), .we(ME_ctl_dataRam_wen),
-    .data_address(ME_rt_data), .data(ME_alu_res),
+    .data_address(ME_alu_res), .data(ME_rt_data),
     // out
     .res(ME_dataram_rdata)
 );
@@ -300,7 +303,7 @@ data_RAM data_RAM_0(
 
 
 WaitRegs MEM_WB_wait(
-    .clk(clk), .en(1),
+    .clk(clk), .en(1), .rst(reset),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),
     .i61(ME_ctl_rfWriteData_mux), .o61(WB_ctl_rfWriteData_mux),

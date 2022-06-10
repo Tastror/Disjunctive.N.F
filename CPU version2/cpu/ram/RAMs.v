@@ -1,24 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: Disjunctive.N.F
-// Engineer: Tastror
-// 
-// Create Date: 2022/06/08 00:30:42
-// Design Name: 
-// Module Name: RAMs
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module instruction_RAM(
     input wire write_enable,

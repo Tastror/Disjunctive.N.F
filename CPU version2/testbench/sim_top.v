@@ -40,7 +40,13 @@ begin
     // s0 ~ s7 16 ~ 23
     // sp is 29
     
-    if (count == 1) begin
+    if (count == 0) begin
+        debug <= 1;
+        cpu_reset <= 0;
+        inst_ram_write_enable <= 0;
+    end
+    
+    else if (count == 1) begin
         debug <= 1;
         cpu_reset <= 1;
         inst_ram_write_enable <= 1;
@@ -48,69 +54,44 @@ begin
         inst_ram_write_data <= 32'h200F0AF4;
         inst_ram_write_address <= PC_INITIAL;
     end
+    
     else if (count == 2) begin
         debug <= 1;
         cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
+        inst_ram_write_enable <= 1;
+        // instruction 2: addi t8 zero 0x8
+        inst_ram_write_data <= 32'h20180008;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
-    
+
     else if (count == 3) begin
         debug <= 1;
         cpu_reset <= 1;
+        // instruction 3: add t7 t7 t8
         inst_ram_write_enable <= 1;
-        // instruction 2: addi t8 zero 0x4
-        inst_ram_write_data <= 32'h20180004;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+        inst_ram_write_data <= 32'h01F87820;
+        inst_ram_write_address <= inst_ram_write_address + 32'h10;
     end
+  
     else if (count == 4) begin
         debug <= 1;
         cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
+        // instruction 4: sw t7 0x4(t8)
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'hAF0F0004;
+        inst_ram_write_address <= inst_ram_write_address + 32'h10;
     end
     
     else if (count == 5) begin
         debug <= 1;
         cpu_reset <= 1;
-        // instruction 3: add t2 t7 t8
+        // instruction 5: lw t3 0x4(t8)
         inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h01F85020;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+        inst_ram_write_data <= 32'h8F0B0004;
+        inst_ram_write_address <= inst_ram_write_address + 32'h10;
     end
+    
     else if (count == 6) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 7) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        // instruction 4: lw t2 0x4(t8)
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h8F0A0004;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 8) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 9) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        // instruction 5: sw t3 0x4(t8)
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'hAF0B0004;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 10) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 11) begin
         debug <= 1;
         cpu_reset <= 1;
         // addi t7 t7 0x1
@@ -118,10 +99,53 @@ begin
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
+    
+    else if (count == 7) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+    
+    else if (count == 8) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+    
+    else if (count == 9) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+    
+    else if (count == 10) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+    
+    else if (count == 11) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+    
     else if (count == 12) begin
         debug <= 1;
         cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
     
     else if (count == 13) begin
@@ -131,10 +155,13 @@ begin
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
+    
     else if (count == 14) begin
         debug <= 1;
         cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
     
     else if (count == 15) begin
@@ -144,101 +171,21 @@ begin
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
+    
     else if (count == 16) begin
         debug <= 1;
         cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 17) begin
-        debug <= 1;
-        cpu_reset <= 1;
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
-    else if (count == 18) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
     
-    else if (count == 19) begin
+    else if (count == 95) begin
         debug <= 1;
         cpu_reset <= 1;
         inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
+        inst_ram_write_data <= 32'h00000000;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 20) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 21) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 22) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 23) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 24) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 25) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 26) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 27) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 28) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
-    end
-    
-    else if (count == 29) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    else if (count == 30) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 0;
     end
     
     else if (count < 100)

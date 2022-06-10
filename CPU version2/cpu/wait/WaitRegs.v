@@ -1,28 +1,11 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 2022/06/08 01:21:44
-// Design Name: 
-// Module Name: WaitRegs
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 
 module WaitRegs(
     input wire clk,
     input wire en,
+    input wire rst,
 
     input wire i1,
     input wire i2,
@@ -83,7 +66,35 @@ module WaitRegs(
 
 always @ (posedge clk)
 begin
-    if (en) begin
+    if (rst) begin
+        o1 <= 0;
+        o2 <= 0;
+        o3 <= 0;
+        o4 <= 0;
+        o5 <= 0;
+        o6 <= 0;
+        o7 <= 0;
+        o8 <= 0;
+        o51 <= 5'd0;
+        o52 <= 5'd0;
+        o61 <= 6'd0;
+        o62 <= 6'd0;
+        o81 <= 8'd0;
+        o82 <= 8'd0;
+        o83 <= 8'd0;
+        o84 <= 8'd0;
+        o161 <= 16'd0;
+        o162 <= 16'd0;
+        o163 <= 16'd0;
+        o164 <= 16'd0;
+        o321 <= 32'd0;
+        o322 <= 32'd0;
+        o323 <= 32'd0;
+        o324 <= 32'd0;
+        o325 <= 32'd0;
+        o326 <= 32'd0;
+        o327 <= 32'd0;
+    end else if (en) begin
         o1 <= i1;
         o2 <= i2;
         o3 <= i3;

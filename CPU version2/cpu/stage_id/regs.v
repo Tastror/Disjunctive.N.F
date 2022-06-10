@@ -1,9 +1,9 @@
-// ¼Ä´æÆ÷¶Ñ
+`timescale 1ns / 1ps
 
 module regs(
     //input
     input wire clk,
-    input wire rst_n,
+    input wire rst,
     input wire we,
     input wire [4:0] waddr,
     input wire [31:0] wdata,
@@ -19,7 +19,7 @@ module regs(
 reg [31:0] registers [0:31];
 
 always @ (posedge clk) begin
-    if(!rst_n) begin
+    if (rst) begin
         registers[0] <= 32'b0;
         registers[1] <= 32'b0;
         registers[2] <= 32'b0;
@@ -59,11 +59,11 @@ always @ (posedge clk) begin
 end
 
 wire ans1, ans2, ans3;
-assign ans1 = (raddr1 == waddr) & we;
-assign rdata1 = registers[raddr1] & {32{~ans1}} | wdata & {32{ans1}};
-assign ans2 = (raddr2 == waddr) & we;
-assign rdata2 = registers[raddr2] & {32{~ans2}} | wdata & {32{ans2}};
-assign ans3 = (raddr3 == waddr) & we;
-assign rdata3 = registers[raddr3] & {32{~ans3}} | wdata & {32{ans3}};
+assign ans1 = |(raddr1 & waddr) & we;
+assign rdata1 = (registers[raddr1] & {32{~ans1}}) | (wdata & {32{ans1}});
+assign ans2 = |(raddr2 & waddr) & we;
+assign rdata2 = (registers[raddr2] & {32{~ans2}}) | (wdata & {32{ans2}});
+assign ans3 = |(raddr3 & waddr) & we;
+assign rdata3 = (registers[raddr3] & {32{~ans3}}) | (wdata & {32{ans3}});
 
 endmodule
