@@ -1,4 +1,4 @@
-// Éú³É¿ØÖÆÐÅºÅ
+// ï¿½ï¿½ï¿½É¿ï¿½ï¿½ï¿½ï¿½Åºï¿½
 
 module id_control(
     //output
@@ -33,12 +33,12 @@ output reg [5:0] ALUOp;
 //     4:and,
 //     5:nor,
 //     6:or,
-//     7:xorÒì»ò,
-//     8:sllÂß¼­×óÒÆ,
-//     9:srlÂß¼­ÓÒÒÆ,
-//     10:sraËãÊõÓÒÒÆ,
-//     11:lui¸ßÎ»¼ÓÔØ,
-//     12:lloµÍÎ»¼ÓÔØ,
+//     7:xorï¿½ï¿½ï¿½,
+//     8:sllï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½,
+//     9:srlï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½,
+//     10:sraï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,
+//     11:luiï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½,
+//     12:lloï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½,
 //     13:multiply,
 //     14:bltz,
 //     15:blez,
@@ -66,7 +66,7 @@ always @(*)
                 6'h05: assign RegDst = 2'b10;
                 default: assign RegDst = 2'b00;
             endcase
-            // ALUSrc Èç¹ûºöÂÔÓ¦¸ÃÔõÃ´Ð´£¬ÔÝÊ±Ð´³ÉÁËX
+            // ALUSrc ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ã´Ð´ï¿½ï¿½ï¿½ï¿½Ê±Ð´ï¿½ï¿½ï¿½ï¿½X
             case(funct)
                 6'b000000,
                 6'b000011,
@@ -96,10 +96,10 @@ always @(*)
                 6'b000010: assign ALUOp = 6'd9;
                 6'b010000: assign ALUOp = 6'd11;
                 6'b010010: assign ALUOp = 6'd12;
-                // ÆäËûËÄÖÖÇé¿ö£¬°üÀ¨lui, llo£¬¶¼ÊÇ¼òµ¥µÄ²Ù×÷£¬½øÐÐ???µÄ´«???
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½lui, lloï¿½ï¿½ï¿½ï¿½ï¿½Ç¼òµ¥µÄ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½???ï¿½Ä´ï¿½???
                 default: assign ALUOp = 6'bX;
             endcase
-            // Ö»ÓÐ·Ã´æÀàÖ¸ÁîÉæ¼°ÄÚ??
+            // Ö»ï¿½Ð·Ã´ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½æ¼°ï¿½ï¿½??
             assign MemRead = 1'b0;
             assign MemWrite = 1'b0;
             assign MemToReg = 1'b0;
@@ -292,18 +292,17 @@ module ID_control(
     input wire [5:0] rt,
 
     output wire [4:0] ctl_pcValue_mux, // pcValue: MUX5_32b, [PC+4, aluRes, instIndex, temp, useDelaySlot]
-    
+
     output wire [2:0] ctl_aluSrc1_mux, // aluSrc1: MUX3_32b, [rs, sa, PC]
     output wire [3:0] ctl_aluSrc2_mux, // aluSrc1: MUX4_32b, [rt, imm, {HI}, {LO}]
-    output wire [8:0] ctl_alu_mux,
+    output wire [19:0] ctl_alu_mux,
     
     output wire ctl_dataRam_en,
     output wire ctl_dataRam_wen,
-    
-    output wire [2:0] ctl_rfWriteData_mux, // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
-    output wire [2:0] ctl_rfWriteAddr_mux, // rfInAddr: MUX3_5b, [rd, rt, 31]
 
     output wire ctl_rf_wen,
+    output wire [2:0] ctl_rfWriteData_mux, // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
+    output wire [2:0] ctl_rfWriteAddr_mux, // rfInAddr: MUX3_5b, [rd, rt, 31]
 
     output wire ctl_low_wen,  // just use for MTLO, MULT, MULTU to save two 32bits data to low
                               // when this is enabled, the [Low] and will save data from [aluRes]
@@ -375,6 +374,27 @@ assign ctl_aluSrc2_mux[3] = (
     (~|opcode[5:0] & (~funct[5] & funct[4] & ~|funct[3:2] & funct[1] & ~funct[0]))  // MFLO
 );
 
+
+assign ctl_alu_mux[0] = 1;
+assign ctl_alu_mux[1] = 0;
+assign ctl_alu_mux[2] = 0;
+assign ctl_alu_mux[3] = 0;
+assign ctl_alu_mux[4] = 0;
+assign ctl_alu_mux[5] = 0;
+assign ctl_alu_mux[6] = 0;
+assign ctl_alu_mux[7] = 0;
+assign ctl_alu_mux[8] = 0;
+assign ctl_alu_mux[9] = 0;
+assign ctl_alu_mux[10] = 0;
+assign ctl_alu_mux[11] = 0;
+assign ctl_alu_mux[12] = 0;
+assign ctl_alu_mux[13] = 0;
+assign ctl_alu_mux[14] = 0;
+assign ctl_alu_mux[15] = 0;
+assign ctl_alu_mux[16] = 0;
+assign ctl_alu_mux[17] = 0;
+assign ctl_alu_mux[18] = 0;
+assign ctl_alu_mux[19] = 0;
 
 
 // aluRes

@@ -44,7 +44,7 @@ begin
         debug <= 1;
         cpu_reset <= 1;
         inst_ram_write_enable <= 1;
-        // instruction 1£ºaddi t7 zero 0xaf4
+        // instruction 1: addi t7 zero 0xaf4
         inst_ram_write_data <= 32'h200F0AF4;
         inst_ram_write_address <= PC_INITIAL;
     end
@@ -58,7 +58,7 @@ begin
         debug <= 1;
         cpu_reset <= 1;
         inst_ram_write_enable <= 1;
-        // instruction 1£ºaddi t8 zero 0x4
+        // instruction 2: addi t8 zero 0x4
         inst_ram_write_data <= 32'h20180004;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
@@ -71,7 +71,7 @@ begin
     else if (count == 5) begin
         debug <= 1;
         cpu_reset <= 1;
-        // instruction 3£ºadd t2 t7 t8
+        // instruction 3: add t2 t7 t8
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h01F85020;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
@@ -85,7 +85,7 @@ begin
     else if (count == 7) begin
         debug <= 1;
         cpu_reset <= 1;
-        // instruction 3£ºlw t2 0x4(t8)
+        // instruction 4: lw t2 0x4(t8)
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h8F0A0004;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
@@ -99,7 +99,7 @@ begin
     else if (count == 9) begin
         debug <= 1;
         cpu_reset <= 1;
-        // instruction 3£ºsw t3 0x4(t8)
+        // instruction 5: sw t3 0x4(t8)
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'hAF0B0004;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;
@@ -113,6 +113,7 @@ begin
     else if (count == 11) begin
         debug <= 1;
         cpu_reset <= 1;
+        // addi t7 t7 0x1
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;

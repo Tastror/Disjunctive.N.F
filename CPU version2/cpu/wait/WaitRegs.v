@@ -48,6 +48,9 @@ module WaitRegs(
     input wire [32:0] i322,
     input wire [32:0] i323,
     input wire [32:0] i324,
+    input wire [32:0] i325,
+    input wire [32:0] i326,
+    input wire [32:0] i327,
     
     output reg o1,
     output reg o2,
@@ -72,7 +75,10 @@ module WaitRegs(
     output reg [32:0] o321,
     output reg [32:0] o322,
     output reg [32:0] o323,
-    output reg [32:0] o324
+    output reg [32:0] o324,
+    output reg [32:0] o325,
+    output reg [32:0] o326,
+    output reg [32:0] o327
 );
 
 always @ (posedge clk)
@@ -102,6 +108,9 @@ begin
         o322 <= i322;
         o323 <= i323;
         o324 <= i324;
+        o325 <= i325;
+        o326 <= i326;
+        o327 <= i327;
     end
 end
 

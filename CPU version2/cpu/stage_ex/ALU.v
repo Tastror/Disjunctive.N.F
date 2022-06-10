@@ -25,38 +25,38 @@ module ALU(
 	input	[31:0] 		alu_src1,
 	input 	[31:0] 		alu_src2,
 	output 	[31:0] 		alu_result
-    );
+);
 	
-	//现在�??20个操�??
-	 wire op_add; 	//加法操作
-	 wire op_sub;		//减法操作
-	 wire op_slt;		//有符号比较，小于置位
-	 wire op_sltu;	//无符号比较，小于置位
-	 wire op_and; 	//按位�???
-	 wire op_nor;		//按位与非
-	 wire op_or;		//按位�???
-	 wire op_xor;		//按位异或
-	 wire op_sll; 	//逻辑左移，shift left logical
-	 wire op_srl;		//逻辑右移，shift right logical
-	 wire op_sra;		//算术右移，shift right arithmetic
-	 wire op_lui; 	//高位加载，load upper immediate	注意输入为src2
-	 wire op_llo;
-	 wire op_mult;
-	 wire op_bltz;
-	 wire op_blez;
-	 wire op_bgtz;
-	 wire op_bgez;
-	 wire op_beq;
-	 wire op_bneq;
+// 现在�???20个操�???
+wire op_add;    // 加法操作
+wire op_sub;    // 减法操作
+wire op_slt;    // 有符号比较，小于置位
+wire op_sltu;   // 无符号比较，小于置位
+wire op_and;    // 按位�????
+wire op_nor;    // 按位与非
+wire op_or;     // 按位�????
+wire op_xor;    // 按位异或
+wire op_sll;    // 逻辑左移，shift left logical
+wire op_srl;    // 逻辑右移，shift right logical
+wire op_sra;    // 算术右移，shift right arithmetic
+wire op_lui;    // 高位加载，load upper immediate	注意输入为src2
+wire op_llo;
+wire op_mult;
+wire op_bltz;
+wire op_blez;
+wire op_bgtz;
+wire op_bgez;
+wire op_beq;
+wire op_bneq;
 	
 // {
 //     0:+,
 //     1:-,
 //     2:slt,
 //     3:sltu,
-//     4:and�??,
+//     4:and�???,
 //     5:nor或非,
-//     6:or�??,
+//     6:or�???,
 //     7:xor异或,
 //     8:sll逻辑左移,
 //     9:srl逻辑右移,
@@ -133,8 +133,9 @@ module ALU(
 	assign adder_a = alu_src1;
 	assign adder_b = (op_sub | op_slt | op_sltu) ? ~alu_src2 : alu_src2;
 	assign adder_carryin = (op_sub | op_slt | op_sltu) ? 1'b1 : 1'b0;
-	adder_16b lo(.src1(alu_src1[15:0]), .src2(alu_src2[15:0]), .carryin(adder_carryin), .res(adder_result[15:0]), .carryout(adder_mid_carryout));
-	adder_16b hi(.src1(alu_src1[31:16]), .src2(alu_src2[31:16]), .carryin(adder_mid_carryout), .res(adder_result[31:16]), .carryout(adder_carryout));
+//	adder_16b lo(.src1(alu_src1[15:0]), .src2(alu_src2[15:0]), .carryin(adder_carryin), .res(adder_result[15:0]), .carryout(adder_mid_carryout));
+//	adder_16b hi(.src1(alu_src1[31:16]), .src2(alu_src2[31:16]), .carryin(adder_mid_carryout), .res(adder_result[31:16]), .carryout(adder_carryout));
+    assign adder_result = adder_a + adder_b;
 	
 	assign add_sub_result = adder_result;
 	

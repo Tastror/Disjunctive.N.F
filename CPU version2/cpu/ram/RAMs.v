@@ -45,6 +45,7 @@ endmodule
 
 module data_RAM(
     input wire clk,
+    input wire en,
     input wire we,
     input wire [31:0] data_address,
     input wire [31:0] data,
@@ -59,7 +60,7 @@ assign real_address = temp[17:2];
 
 dist_mem_gen_0 RAM_data(
     // in
-    .clk(clk), .a(real_address), .we(we), .d(data),
+    .clk(clk), .a(real_address), .we(we & en), .d(data),
     // out
     .spo(res)
 );
