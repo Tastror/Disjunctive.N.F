@@ -4,4 +4,4 @@ add t7 t7 t8    01F87820
 sw t7 0x4(t8)    AF0F0004
 lw t3 0x4(t8)    8F0B0004
 
-addi t7 t7 0x1    21290001
+addi t1 t1 0x1    21290001

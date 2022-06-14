@@ -94,7 +94,7 @@ begin
     else if (count == 6) begin
         debug <= 1;
         cpu_reset <= 1;
-        // addi t7 t7 0x1
+        // addi t1 t1 0x1
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h21290001;
         inst_ram_write_address <= inst_ram_write_address + 32'h4;

@@ -59,11 +59,11 @@ always @ (posedge clk) begin
 end
 
 wire ans1, ans2, ans3;
-assign ans1 = |(raddr1 & waddr) & we;
+assign ans1 = (raddr1 == waddr) & we;
 assign rdata1 = (registers[raddr1] & {32{~ans1}}) | (wdata & {32{ans1}});
-assign ans2 = |(raddr2 & waddr) & we;
+assign ans2 = |(raddr2 == waddr) & we;
 assign rdata2 = (registers[raddr2] & {32{~ans2}}) | (wdata & {32{ans2}});
-assign ans3 = |(raddr3 & waddr) & we;
+assign ans3 = |(raddr3 == waddr) & we;
 assign rdata3 = (registers[raddr3] & {32{~ans3}}) | (wdata & {32{ans3}});
 
 endmodule
