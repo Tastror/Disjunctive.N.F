@@ -1,164 +1,146 @@
 `timescale 1ns / 1ps
 
 module ALU(
-    input wire [19:0] alu_control,
+    // input
+    input wire [11:0] alu_control,
+    input wire alu_op2,
     input wire [31:0] alu_src1,
     input wire [31:0] alu_src2,
+    // output
     output wire [31:0] alu_result,
+    output wire [31:0] alu_result_high,
     output wire alu_zero
 );
 
-wire op_add;    // 加法操作
-wire op_sub;    // 减法操作
-wire op_slt;    // 有符号比较，小于置位
-wire op_sltu;   // 无符号比较，小于置位
-wire op_and;    // 按位�????
-wire op_nor;    // 按位与非
-wire op_or;     // 按位�????
-wire op_xor;    // 按位异或
-wire op_sll;    // 逻辑左移，shift left logical
-wire op_srl;    // 逻辑右移，shift right logical
-wire op_sra;    // 算术右移，shift right arithmetic
-wire op_lui;    // 高位加载，load upper immediate	注意输入为src2
-wire op_llo;
-wire op_mult;
-wire op_bltz;
-wire op_blez;
-wire op_bgtz;
-wire op_bgez;
-wire op_beq;
-wire op_bneq;
-	
-// {
-//     0:+,
-//     1:-,
-//     2:slt,
-//     3:sltu,
-//     4:and�???,
-//     5:nor或非,
-//     6:or�???,
-//     7:xor异或,
-//     8:sll逻辑左移,
-//     9:srl逻辑右移,
-//     10:sra算术右移,
-//     11:lui高位加载,
-//     12:llo低位加载,
-//     13:multi,
-//     14:bltz,
-//     15:blez,
-//     16:bgtz,
-//     17:bgez,
-//     18:beq,
-//     19:bneq
-// }
+//              0  1  2  3  4  5  6  7   8   9  10  11
+// ctl_alu_mux [+, -, *, /, &, |, ^, <<, >>, <, ==, >]
+// [0~3 op2 u, 5 op2 ~|, 8 op2 >>sra, 9 op2 >=, a op2 !=, b op2 <=]
 
-    assign op_add = alu_control[0];
-    assign op_sub = alu_control[1];
-    assign op_slt = alu_control[2];
-    assign op_sltu = alu_control[3];
-    assign op_and = alu_control[4];
-    assign op_nor = alu_control[5];
-    assign op_or = alu_control[6];
-    assign op_xor = alu_control[7];
-    assign op_sll = alu_control[8];
-    assign op_srl = alu_control[9];
-    assign op_sra = alu_control[10];
-    assign op_lui = alu_control[11];
-    assign op_llo = alu_control[12];
-    assign op_mult = alu_control[13];
-    assign op_bltz = alu_control[14];
-    assign op_blez = alu_control[15];
-    assign op_bgtz = alu_control[16];
-    assign op_bgez = alu_control[17];
-    assign op_beq = alu_control[18];
-    assign op_bneq = alu_control[19];
+wire op_add, op_sub, op_mul, op_div, op_and, op_or, op_xor, op_sll, op_srl, op_less, op_equal, op_great;
+wire op_addu, op_subu, op_mulu, op_divu, op_nor, op_sra, op_geq, op_neq, op_leq;
+
+assign op_add = alu_control[0] & ~alu_op2;
+assign op_addu = alu_control[0] & alu_op2;
+assign op_sub = alu_control[1] & ~alu_op2;
+assign op_subu = alu_control[1] & alu_op2;
+assign op_mul = alu_control[2] & ~alu_op2;
+assign op_mulu = alu_control[2] & alu_op2;
+assign op_div = alu_control[3] & ~alu_op2;
+assign op_divu = alu_control[3] & alu_op2;
+assign op_and = alu_control[4];
+assign op_or = alu_control[5] & ~alu_op2;
+assign op_nor = alu_control[5] & alu_op2;
+assign op_xor = alu_control[6];
+assign op_sll = alu_control[7];
+assign op_srl = alu_control[8] & ~alu_op2;
+assign op_sra = alu_control[8] & alu_op2;
+assign op_less = alu_control[9] & ~alu_op2;
+assign op_geq = alu_control[9] & alu_op2;
+assign op_equal = alu_control[10] & ~alu_op2;
+assign op_neq = alu_control[10] & alu_op2;
+assign op_great = alu_control[11] & ~alu_op2;
+assign op_leq = alu_control[11] & alu_op2;
+
+wire [31:0] add_result;
+wire [31:0] addu_result;
+wire [31:0] sub_result;
+wire [31:0] subu_result;
+wire [31:0] mul_result;
+wire [31:0] mulu_result;
+wire [31:0] mul_result_high;
+wire [31:0] mulu_result_high;
+wire [31:0] div_result;
+wire [31:0] divu_result;
+wire [31:0] div_result_high;
+wire [31:0] divu_result_high;
+wire [31:0] and_result;
+wire [31:0] or_result;
+wire [31:0] nor_result;
+wire [31:0] xor_result;
+wire [31:0] sll_result;
+wire [31:0] srl_result;
+wire [31:0] sra_result;
+wire [31:0] less_result;
+wire [31:0] less_result_zero;
+wire [31:0] geq_result;
+wire [31:0] geq_result_zero;
+wire [31:0] equal_result;
+wire [31:0] equal_result_zero;
+wire [31:0] neq_result;
+wire [31:0] neq_result_zero;
+wire [31:0] great_result;
+wire [31:0] great_result_zero;
+wire [31:0] leq_result;
+wire [31:0] leq_result_zero;
     
-    //19个存储结果的寄存
-    wire 	[31:0]	 	add_sub_result;
-    wire 	[31:0]		slt_result;
-    wire 	[31:0]	 	sltu_result;
-    wire 	[31:0]	 	and_result;
-    wire 	[31:0]		nor_result;
-    wire 	[31:0]	 	or_result;	
-    wire 	[31:0]	 	xor_result;
-    wire 	[31:0]		sll_result;
-    wire 	[31:0]	 	srl_result;
-    wire 	[31:0]	 	sra_result;
-    wire 	[31:0]	 	lui_result;
-    wire 	[31:0]	 	llo_result;
-    wire 	[31:0]	 	mult_result;
-    wire 	[31:0]	 	bltz_result;
-    wire 	[31:0]	 	blez_result;
-    wire 	[31:0]	 	bgtz_result;
-    wire 	[31:0]	 	bgez_result;
-    wire 	[31:0]	 	beq_result;
-    wire 	[31:0]	 	bneq_result;
-    
-    //{and, nor, or, xor, lui, llo}
-    assign and_result = alu_src1 & alu_src2;
-    assign or_result = alu_src1 | alu_src2;
-    assign nor_result = ~or_result;
-    assign xor_result = alu_src1 ^ alu_src2;
-    assign lui_result = {alu_src2[15:0], 16'b0};
-    assign llo_result = {16'b0, alu_src2[31:16]};
-    
-    //{add, sub}
-    wire	[31:0]		adder_a;
-    wire	[31:0] 		adder_b;
-    wire				adder_carryin;
-    wire	[31:0]		adder_result;
-    wire				adder_carryout;
-    wire				adder_mid_carryout;
-    
-    // {add, sub}
-    assign adder_a = alu_src1;
-    assign adder_b = (op_sub | op_slt | op_sltu) ? ~alu_src2 : alu_src2;
-    assign adder_carryin = (op_sub | op_slt | op_sltu) ? 1'b1 : 1'b0;
-    // adder_16b lo(.src1(alu_src1[15:0]), .src2(alu_src2[15:0]), .carryin(adder_carryin), .res(adder_result[15:0]), .carryout(adder_mid_carryout));
-    // adder_16b hi(.src1(alu_src1[31:16]), .src2(alu_src2[31:16]), .carryin(adder_mid_carryout), .res(adder_result[31:16]), .carryout(adder_carryout));
-    assign adder_result = adder_a + adder_b;
-    assign add_sub_result = adder_result;
-    
-    // {slt, sltu}
-    // 如果src1为负数，src2为正数；或src1,src2异号，相加结果为负数
-    assign slt_result[31:1] = 31'b0; //占位
-    assign slt_result[0] = (alu_src1[31] & ~alu_src2[31])
-    					 | (~(alu_src1[31] ^ alu_src2[31]) & adder_result[31]);
-    					 
-    assign sltu_result[31:1] = 31'b0; //占位
-    assign sltu_result[0] = ~adder_carryout;
-    
-    // {sll. srl, sra}
-    assign sll_result = alu_src2 << alu_src1[4:0];
-    assign srl_result = alu_src2 >> alu_src1[4:0];
-    assign sra_result = ($signed(alu_src2)) >>> alu_src1[4:0];
-    
-    // {其余暂时没写}
-    
-    assign alu_result = (
-            (({32{op_add|op_sub}} & add_sub_result)
-        |   ({32{op_slt}}		 & slt_result))
-        |   (({32{op_sltu}}		 & sltu_result)
-        |   ({32{op_and}}		 & and_result))
-            ) | (
-            (({32{op_nor}}		 & nor_result)
-        |   ({32{op_or}}		 & or_result))
-        |   (({32{op_xor}}		 & xor_result)
-        |   ({32{op_sll}}		 & sll_result))
-            ) | (
-            (({32{op_srl}}		 & srl_result)
-        |   ({32{op_sra}}		 & sra_result))
-        |   (({32{op_lui}}		 & lui_result)
-        |   ({32{op_llo}}		 & llo_result))
-            ) | (
-            (({32{op_mult}}		 & mult_result)
-        |   ({32{op_bltz}}		 & bltz_result))
-        |   (({32{op_blez}}		 & blez_result)
-        |   ({32{op_bgtz}}		 & bgtz_result))
-            ) | (
-            (({32{op_bgez}}		 & mult_result)
-        |   ({32{op_beq}}		 & bltz_result))
-        |   (({32{op_bneq}}		 & blez_result))
-    );
+assign add_result = alu_src1 + alu_src2;
+assign addu_result = alu_src1 + alu_src2;
+assign sub_result = alu_src1 - alu_src2;
+assign subu_result = alu_src1 - alu_src2;
+assign mul_result = 0;
+assign mulu_result = 0;
+assign mul_result_high = 0;
+assign mulu_result_high = 0;
+assign div_result = 0;
+assign divu_result = 0;
+assign div_result_high = 0;
+assign divu_result_high = 0;
+assign and_result = alu_src1 & alu_src2;
+assign or_result = alu_src1 | alu_src2;
+assign nor_result = ~or_result;
+assign xor_result = alu_src1 ^ alu_src2;
+assign sll_result = 0;
+assign srl_result = 0;
+assign sra_result = 0;
+assign less_result = 0;
+assign less_result_zero = 0;
+assign geq_result = 0;
+assign geq_result_zero = 0;
+assign equal_result = 0;
+assign equal_result_zero = 0;
+assign neq_result = 0;
+assign neq_result_zero = 0;
+assign great_result = 0;
+assign great_result_zero = 0;
+assign leq_result = 0;
+assign leq_result_zero = 0;
+
+assign alu_result = 
+    {32{op_add}} & add_result |
+    {32{op_addu}} & addu_result |
+    {32{op_sub}} & sub_result |
+    {32{op_subu}} & subu_result |
+    {32{op_mul}} & mul_result |
+    {32{op_mulu}} & mulu_result |
+    {32{op_div}} & div_result |
+    {32{op_divu}} & divu_result |
+    {32{op_and}} & and_result |
+    {32{op_or}} & or_result |
+    {32{op_nor}} & nor_result |
+    {32{op_xor}} & xor_result |
+    {32{op_sll}} & sll_result |
+    {32{op_srl}} & srl_result |
+    {32{op_sra}} & sra_result |
+    {32{op_less}} & less_result |
+    {32{op_geq}} & geq_result |
+    {32{op_equal}} & equal_result |
+    {32{op_neq}} & neq_result |
+    {32{op_great}} & great_result |
+    {32{op_leq}} & leq_result
+;
+assign alu_result_high =
+    {32{op_mul}} & mul_result_high |
+    {32{op_mulu}} & mulu_result_high |
+    {32{op_div}} & div_result_high |
+    {32{op_divu}} & divu_result_high
+;
+assign alu_zero =
+    {32{op_less}} & less_result_zero |
+    {32{op_geq}} & geq_result_zero |
+    {32{op_equal}} & equal_result_zero |
+    {32{op_neq}} & neq_result_zero |
+    {32{op_great}} & great_result_zero |
+    {32{op_leq}} & leq_result_zero
+;
 	
 endmodule

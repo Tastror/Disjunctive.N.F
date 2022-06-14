@@ -88,7 +88,7 @@ begin
         // instruction 5: lw t3 0x4(t8)
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h8F0B0004;
-        inst_ram_write_address <= inst_ram_write_address + 32'h10;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
     
     else if (count == 6) begin
@@ -173,14 +173,6 @@ begin
     end
     
     else if (count == 16) begin
-        debug <= 1;
-        cpu_reset <= 1;
-        inst_ram_write_enable <= 1;
-        inst_ram_write_data <= 32'h21290001;
-        inst_ram_write_address <= inst_ram_write_address + 32'h4;
-    end
-    
-    else if (count == 95) begin
         debug <= 1;
         cpu_reset <= 1;
         inst_ram_write_enable <= 1;

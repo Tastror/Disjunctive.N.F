@@ -4,479 +4,285 @@
 
 module id_control(
     input wire [5:0] opcode,
-    input wire [5:0] funct,
+    input wire [4:0] rs,
     input wire [4:0] rt,
+    input wire [4:0] rd,
+    input wire [4:0] sa,
+    input wire [5:0] funct,
 
-    output wire [4:0] ctl_pcValue_mux, // pcValue: MUX5_32b, [PC+4, aluRes, instIndex, temp, useDelaySlot]
+    output wire ctl_pc_first_mux, // 0, or depends on alu_res
+    output wire [3:0] ctl_pc_second_mux, // [first, index, rs_data, break]
 
-    output wire [2:0] ctl_aluSrc1_mux, // aluSrc1: MUX3_32b, [rs, sa, PC]
-    output wire [3:0] ctl_aluSrc2_mux, // aluSrc1: MUX4_32b, [rt, imm, {HI}, {LO}]
-    output wire [19:0] ctl_alu_mux,
+    output wire [1:0] ctl_aluSrc1_mux, // aluSrc1: MUX2_32b, [rs_data, sa]
+    output wire [2:0] ctl_aluSrc2_mux, // aluSrc1: MUX3_32b, [rt_data, imm, 0]
+    output wire [15:0] ctl_alu_mux,
+    output wire ctl_alu_op2,
     
     output wire ctl_dataRam_en,
     output wire ctl_dataRam_wen,
 
     output wire ctl_rf_wen,
-    output wire [2:0] ctl_rfWriteData_mux, // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
+    output wire [5:0] ctl_rfWriteData_mux, // rfInData: MUX6_32b, [aluRes, imm, PC+4, ramdata, HI_data, LO_data]
     output wire [2:0] ctl_rfWriteAddr_mux, // rfInAddr: MUX3_5b, [rd, rt, 31]
 
-    output wire ctl_low_wen,  // just use for MTLO, MULT, MULTU to save two 32bits data to low
-                              // when this is enabled, the [Low] and will save data from [aluRes]
-    output wire ctl_high_wen,  // just use for MTHI, MULT, MULTU to save two 32bits data to high 
-                               // when this is enabled, the [High] and will save data from [aluRes]
-    output wire ctl_temp_wen  // JALR, JR
-
-    // offset and inst_index are all directly assigned outside
+    output wire ctl_low_wen,
+    output wire ctl_high_wen,
+    output wire [1:0] ctl_low_mux,  // [aluRes, rs_data]
+    output wire [1:0] ctl_high_mux  // [aluRes, rs_data]
 );
 
+wire ADD, ADDI, ADDU, ADDIU, SUB, SUBU, SLT, SLTI, SLTU, SLTIU, DIV, DIVU, MUL, MULT, MULTU;
+wire AND, ANDI, LUI, NOR, OR, ORI, XOR, XORI;
+wire SLL, SRL, SRA, SLLV, SRLV, SRAV;
+wire BEQ, BNE, BGEZ, BLTZ, BGTZ, BLEZ, BGEZAL, BLTZAL;
+wire J, JAL, JR, JALR;
+wire MFHI, MFLO, MTHI, MTLO;
+wire BREAK, SYSCALL;
+wire LB, LBU, LH, LHU, LW, SB, SH, SW;
+wire ERET, MFC0, MTC0;
+wire NOP;
+
+assign ADD = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100000);
+assign ADDI = (opcode == 6'b001000);
+assign ADDU = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100001);
+assign ADDIU = (opcode == 6'b001001);
+assign SUB = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100010);
+assign SUBU = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100011);
+assign SLT = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b101010);
+assign SLTI = (opcode == 6'b001010);
+assign SLTU = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b101011);
+assign SLTIU = (opcode == 6'b001011);
+assign DIV = (opcode == 6'b000000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b011010);
+assign DIVU = (opcode == 6'b000000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b011011);
+assign MUL = (opcode == 6'b011100) & (sa == 5'b00000) & (funct == 6'b000010);
+assign MULT = (opcode == 6'b000000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b011000);
+assign MULTU = (opcode == 6'b000000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b011001);
+assign AND = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100100);
+assign ANDI = (opcode == 6'b001100);
+assign LUI = (opcode == 6'b001111) & (rs == 5'b00000);
+assign NOR = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100111);
+assign OR = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100101);
+assign ORI = (opcode == 6'b001101);
+assign XOR = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100110);
+assign XORI = (opcode == 6'b001110);
+assign SLL = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000000) & |rd & |rt & |sa; // if not add this, sll and nop will be at the same time...
+assign SRL = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000010);
+assign SRA = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000011);
+assign SLLV = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b000100);
+assign SRLV = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b000110);
+assign SRAV = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b000111);
+assign BEQ = (opcode == 6'b000100);
+assign BNE = (opcode == 6'b000101);
+assign BGEZ = (opcode == 6'b000001) & (rt == 5'b00001);
+assign BLTZ = (opcode == 6'b000001) & (rt == 5'b00000);
+assign BGTZ = (opcode == 6'b000111) & (rt == 5'b00000);
+assign BLEZ = (opcode == 6'b000110) & (rt == 5'b00000);
+assign BGEZAL = (opcode == 6'b000001) & (rt == 5'b10001);
+assign BLTZAL = (opcode == 6'b000001) & (rt == 5'b10000);
+assign J = (opcode == 6'b000010);
+assign JAL = (opcode == 6'b000011);
+assign JR = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b001000);
+assign JALR = (opcode == 6'b000000) & (rt == 5'b00000) & (sa == 5'b00000) & (funct == 6'b001001);
+assign MFHI = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010000);
+assign MFLO = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (sa == 5'b00001) & (funct == 6'b010010);
+assign MTHI = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010001);
+assign MTLO = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010011);
+assign BREAK = (opcode == 6'b000000) & (funct == 6'b001101);
+assign SYSCALL = (opcode == 6'b000000) & (funct == 6'b001100);
+assign LB = (opcode == 6'b100000);
+assign LBU = (opcode == 6'b100100);
+assign LH = (opcode == 6'b100001);
+assign LHU = (opcode == 6'b100101);
+assign LW = (opcode == 6'b100011);
+assign SB = (opcode == 6'b101000);
+assign SH = (opcode == 6'b101001);
+assign SW = (opcode == 6'b101011);
+assign ERET = (opcode == 6'b010000) & (rs == 5'b10000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b011000);
+assign MFC0 = (opcode == 6'b010000) & (rs == 5'b00000) & (sa == 5'b00000) & (funct[5:3] == 6'b000);
+assign MTC0 = (opcode == 6'b010000) & (rs == 5'b00100) & (sa == 5'b00000) & (funct[5:3] == 6'b000);
+assign NOP = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b000000);
 
 
-// PC + 4
-assign ctl_pcValue_mux[0] = ~|ctl_pcValue_mux[4:1];
-// aluRes
-assign ctl_pcValue_mux[1] = (
-    (~opcode[5] & (&opcode[4:3]) & funct[0])  // 011xxx, 000001
-);
-// instIndex
-assign ctl_pcValue_mux[2] = (
-    (~opcode[5] & (&opcode[4:3]) & funct[1])  // 011xxx, 000010
-);
-//temp
-assign ctl_pcValue_mux[3] = (
-    (~opcode[5] & (&opcode[4:3]) & funct[2])  // 011xxx, 000100
-);
-// use delaySlot
-assign ctl_pcValue_mux[4] = (
-    (~|opcode[5:3] & |opcode[2:0]) |  // 000(xxx) has 1 in (xxx)
-    (~|opcode[5:0] & (~|funct[5:4] & funct[3] & ~|funct[2:1]))  // JALR, JR
-);
+
+assign ctl_pc_first_mux =
+    BEQ | BNE | BGEZ | BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL
+;
 
 
-// assign ctl_instRam_en = ~(
-//     (~|opcode[5:3] & |opcode[2:0]) |  // 000(xxx) has 1 in (xxx)
-//     (~|opcode[5:0] & (~|funct[5:4] & funct[3] & ~|funct[2:1]))  // JALR, JR
-// );
+// pcValue: MUX4_32b, [first, index, rs_data, break]
+assign ctl_pc_second_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    DIV | DIVU | MUL | MULT | MULTU | AND | ANDI | LUI | NOR | OR | ORI |
+    XOR | XORI | SLL | SRL | SRA | SLLV | SRLV | SRAV | BEQ | BNE | BGEZ |
+    BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL | MFHI | MFLO | MTHI | MTLO |
+    SYSCALL | LB | LBU | LH | LHU | LW | SB | SH | SW | ERET | MFC0 | MTC0 |
+    NOP
+;
+assign ctl_pc_second_mux[1] =
+    J | JAL
+;
+assign ctl_pc_second_mux[2] =
+    JR | JALR
+;
+assign ctl_pc_second_mux[3] =
+    BREAK
+;
 
 
-// rs
-assign ctl_aluSrc1_mux[0] = ~|ctl_aluSrc1_mux[2:1];
-// sa
-assign ctl_aluSrc1_mux[1] = (
-    (~|opcode[5:0] & ~|funct[5:2])  // 000000, 0000xx  SLL, SRA, SRL
-);
-// PC
-assign ctl_aluSrc1_mux[2] = (
-    (~opcode[5] & &opcode[4:3])  // all 011xxx
-);
+// aluSrc1: MUX2_32b, [rs_data, sa]
+assign ctl_aluSrc1_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    DIV | DIVU | MUL | MULT | MULTU | AND | ANDI | NOR | OR | ORI | XOR |
+    XORI | SLLV | SRLV | SRAV | BEQ | BNE | BGEZ | BLTZ | BGTZ | BLEZ |
+    BGEZAL | BLTZAL | LB | LBU | LH | LHU | LW | SB | SH | SW
+;
+assign ctl_aluSrc1_mux[1] =
+    SLL | SRL | SRA
+;
 
 
-// rt
-assign ctl_aluSrc2_mux[0] = (
-    (~|opcode[5:0] & ~(~funct[5] & funct[4] & ~|funct[3:2] & ~funct[0])) |  // all 000000 except 0100x0
-    (~|opcode[5:3] & opcode[2] & ~opcode[1])  // 00010x  BEQ, BNE
-);
-// imm
-assign ctl_aluSrc2_mux[1] = (
-    opcode[5] |  // all 1xxxxx
-    (~opcode[5] & opcode[3])  // all 0x1xxx
-);
-// {HI}
-assign ctl_aluSrc2_mux[2] = (
-    (~|opcode[5:0] & (~funct[5] & funct[4] & ~|funct[3:0]))  // MFHI
-);
-// {LO}
-assign ctl_aluSrc2_mux[3] = (
-    (~|opcode[5:0] & (~funct[5] & funct[4] & ~|funct[3:2] & funct[1] & ~funct[0]))  // MFLO
-);
+// aluSrc1: MUX3_32b, [rt_data, imm, 0]
+assign ctl_aluSrc2_mux[0] =
+    ADD | ADDU | SUB | SUBU | SLT | SLTU | DIV | DIVU | MUL | MULT |
+    MULTU | AND | NOR | OR | XOR | SLL | SRL | SRA | SLLV | SRLV | SRAV |
+    BEQ | BNE | BGEZ
+;
+assign ctl_aluSrc2_mux[1] =
+    ADDI | ADDIU | SLTI | SLTIU | ANDI | ORI | XORI | LB | LBU | LH | LHU |
+    LW | SB | SH | SW
+;
+assign ctl_aluSrc2_mux[2] =
+    BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL
+;
 
 
-// add
-assign ctl_alu_mux[0] = (
-    opcode[5] |  // 1xxxxx
-    (~|opcode[5:4] & opcode[3] & ~|opcode[2:1]) |  // 00100x
-    (~|opcode[5:0] & funct[5] & ~|funct[4:1])  // all 000000, funct = 10000x
-);
-// sub
-assign ctl_alu_mux[1] = (
-    ((~|opcode[5:0] & funct[5]) & (~|funct[4:2] & funct[1]))  // all 000000, funct = 10001x
-);
-// slt
-assign ctl_alu_mux[2] = (
-    (~|opcode[5:4] & (opcode[3] & ~opcode[2]) & (opcode[1] & ~opcode[0])) |  // 001010
-    (~|opcode[5:0] & (funct[5] & ~funct[4]) & (funct[3] & ~funct[2]) & (funct[1] & ~funct[0]))  // 000000, funct = 101010
-);
-// sltu
-assign ctl_alu_mux[3] = (
-    (~|opcode[5:4] & (opcode[3] & ~opcode[2]) & (opcode[1] & opcode[0])) |  // 001011
-    (~|opcode[5:0] & (funct[5] & ~funct[4]) & (funct[3] & ~funct[2]) & (funct[1] & funct[0]))  // 000000, funct = 101011
-);
-assign ctl_alu_mux[4] = 0;
-assign ctl_alu_mux[5] = 0;
-assign ctl_alu_mux[6] = 0;
-assign ctl_alu_mux[7] = 0;
-assign ctl_alu_mux[8] = 0;
-assign ctl_alu_mux[9] = 0;
-assign ctl_alu_mux[10] = 0;
-assign ctl_alu_mux[11] = 0;
-assign ctl_alu_mux[12] = 0;
-assign ctl_alu_mux[13] = 0;
-assign ctl_alu_mux[14] = 0;
-assign ctl_alu_mux[15] = 0;
-assign ctl_alu_mux[16] = 0;
-assign ctl_alu_mux[17] = 0;
-assign ctl_alu_mux[18] = 0;
-assign ctl_alu_mux[19] = 0;
+//              0  1  2  3  4  5  6  7   8   9  10  11
+// ctl_alu_mux [+, -, *, /, &, |, ^, <<, >>, <, ==, >]
+// [5 op2 ~|, 9 op2 >=, a op2 !=, b op2 <=]
+assign ctl_alu_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | LB | LBU | LH | LHU | LW | SB | SH | SW
+;
+assign ctl_alu_mux[1] =
+    SUB | SUBU
+;
+assign ctl_alu_mux[2] =
+    MUL | MULT | MULTU
+;
+assign ctl_alu_mux[3] =
+    DIV | DIVU
+;
+assign ctl_alu_mux[4] =
+    AND | ANDI
+;
+assign ctl_alu_mux[5] =
+    NOR | OR | ORI
+;
+assign ctl_alu_mux[6] =
+    XOR | XORI
+;
+assign ctl_alu_mux[7] =
+    SLL | SLLV
+;
+assign ctl_alu_mux[8] =
+    SRL | SRA | SRLV | SRAV
+;
+assign ctl_alu_mux[9] =
+    SLT | SLTI | SLTU | SLTIU | BGEZ | BLTZ | BGEZAL | BLTZAL
+;
+assign ctl_alu_mux[10] =
+    BEQ | BNE
+;
+assign ctl_alu_mux[11] =
+    BGTZ | BLEZ
+;
 
 
-// aluRes
-assign ctl_rfWriteData_mux[0] = (
-    (~|opcode[5:0] & ~(~|funct[5:4] & funct[3] & ~|funct[2:1])) |  // all 000000 except JR, JALR
-    (~|opcode[5:4] & opcode[3])  // 001xxx
-);
-// DataRamReadData
-assign ctl_rfWriteData_mux[1] = (
-    (opcode[5] & ~opcode[4] & ~opcode[3])  // 100xxx
-);
-// PC + 8
-assign ctl_rfWriteData_mux[2] = (
-    (~|opcode[5:1] & opcode[0] & rt[4]) |  // 000001, rt = 1xxxx
-    (~|opcode[5:0] & ~|funct[5:4] & ~|funct[2:1] & funct[3] & funct[0]) |  // 000000, funct = 001001
-    (~|opcode[5:2] & &opcode[1:0])  // 000011
-);
+assign ctl_alu_op2 =
+    ADDU | ADDIU | SUBU | SLTU | SLTIU | DIVU | MULTU | NOR | SRA | SRAV |
+     BNE | BGEZ | BLEZ | BGEZAL
+;
 
 
-assign ctl_dataRam_en = (
-    opcode[5]
-);
-
-assign ctl_dataRam_wen = (
-    opcode[5] & opcode[3]
-);
+assign ctl_dataRam_en =
+    LB | LBU | LH | LHU | LW | SB | SH | SW
+;
 
 
-// rd
-assign ctl_rfWriteAddr_mux[0] = (
-    (~|opcode[5:0] & ~((~funct[5] & funct[4]) & (funct[3] | funct[0])))  // 000000, expect Multi series(funct = 01a00b, there must be at least one 1 in ab)
-);
-// rt
-assign ctl_rfWriteAddr_mux[1] = (
-    (opcode[5] & ~|opcode[4:3]) | // 100xxx
-    (~|opcode[5:4] & opcode[3]) // 001xxx
-);
-// 31
-assign ctl_rfWriteAddr_mux[2] = (
-    (~|opcode[5:1] & opcode[0] & rt[4]) | // 000001, rt = 1xxxx
-    (~|opcode[5:2] & &opcode[1:0])  // JAL(000011)
-);
+assign ctl_dataRam_wen =
+    SB | SH | SW
+;
 
 
-assign ctl_low_wen = (
-    (~|opcode[5:0] & ((~funct[5] & funct[4]) & (funct[3] | &funct[1:0])))  // 000000,  funct = 011xxx or 01xx11 (only 010011)
-);
+assign ctl_rf_wen =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    MUL | AND | ANDI | LUI | NOR | OR | ORI | XOR | XORI | SLL | SRL |
+    SRA | SLLV | SRLV | SRAV | BGEZAL | BLTZAL | JAL | JALR | MFHI | MFLO |
+    LB | LBU | LH | LHU | LW
+;
 
-assign ctl_high_wen = (
-    (~|opcode[5:0] & ((~funct[5] & funct[4]) & (funct[3] | (~|funct[3:1] & funct[0]))))  // 00000, funct = 011xxx or 010001
-);
 
-assign ctl_temp_wen = (
-    (~|opcode[5:0] & (~|funct[5:4] & funct[3] & ~|funct[2:1]))  // JALR, JR
-);
+// rfInData: MUX6_32b, [aluRes, imm, PC+4, ramdata, HI_data, LO_data]
+assign ctl_rfWriteData_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA | SLLV |
+    SRLV | SRAV
+;
+assign ctl_rfWriteData_mux[1] =
+    LUI
+;
+assign ctl_rfWriteData_mux[2] =
+    BGEZAL | BLTZAL | JAL | JALR
+;
+assign ctl_rfWriteData_mux[3] =
+    LB | LBU | LH | LHU | LW
+;
+assign ctl_rfWriteData_mux[4] =
+    MFHI
+;
+assign ctl_rfWriteData_mux[5] =
+    MFLO
+;
 
-assign ctl_rf_wen = (
-    (opcode[5] & ~|opcode[4:3]) |  // 100xxx
-    (~|opcode[5:4] & opcode[3]) |  // 001xxx
-    (~|opcode[5:0] & ~(~|funct[5:4] & funct[3] & ~|funct[2:0])) |  // 000000 except JR
-    (~|opcode[5:1] & opcode[0] & funct[5]) |  // BLTZAL, BGEZAL
-    (~|opcode[5:2] & &opcode[1:0]) // JAL
-);
-// attention, sll $zero $zero 0x0 is 0x00000000, which will make ctl_rf_wen to true (through regfile not response to $zero write) 
 
+// rfInAddr: MUX3_5b, [rd, rt, 31]
+assign ctl_rfWriteAddr_mux[0] =
+    ADD | ADDU | SUB | SUBU | SLT | SLTU | MUL | AND | NOR | OR | XOR |
+    SLL | SRL | SRA | SLLV | SRLV | SRAV | MFHI | MFLO
+;
+assign ctl_rfWriteAddr_mux[1] =
+    ADDI | ADDIU | SLTI | SLTIU | ANDI | LUI | ORI | XORI | LB | LBU |
+    LH | LHU | LW
+;
+assign ctl_rfWriteAddr_mux[2] =
+    BGEZAL | BLTZAL | JAL | JALR
+;
+
+
+assign ctl_low_wen =
+    DIV | DIVU | MULT | MULTU | MTLO
+;
+
+
+assign ctl_high_wen =
+    DIV | DIVU | MULT | MULTU | MTHI
+;
+
+
+// [aluRes, rs_data]
+assign ctl_low_mux[0] =
+    DIV | DIVU | MULT | MULTU
+;
+assign ctl_low_mux[1] =
+    MTLO
+;
+
+
+// [aluRes, rs_data]
+assign ctl_high_mux[0] =
+    DIV | DIVU | MULT | MULTU
+;
+assign ctl_high_mux[1] =
+    MTHI
+;
 
 endmodule
-
-
-
-// module id_control(
-//     //output
-//     RegWrite,
-//     RegDst,
-//     ALUSrc,
-//     ALUOp,
-//     MemRead,
-//     MemWrite,
-//     MemToReg,
-//     //input
-//     op,
-//     funct,
-//     rt
-// );
-
-// input wire [5:0] op;
-// input [5:0] funct;
-// input [4:0] rt;
-
-// output reg RegWrite;
-// output reg [1:0] RegDst; 
-// // 0:ALURes, 1:mem_rdata, 2:PC+8
-// output reg ALUSrc; 
-// // 0:rs, 1:sa
-// output reg [5:0] ALUOp; 
-// // {
-// //     0:+,
-// //     1:-,
-// //     2:slt,
-// //     3:sltu,
-// //     4:and,
-// //     5:nor,
-// //     6:or,
-// //     7:xor���,
-// //     8:sll�߼�����,
-// //     9:srl�߼�����,
-// //     10:sra��������,
-// //     11:lui��λ����,
-// //     12:llo��λ����,
-// //     13:multiply,
-// //     14:bltz,
-// //     15:blez,
-// //     16:bgtz,
-// //     17:bgez,
-// //     18:beq,
-// //     19:bneq
-// // }
-// output reg MemRead;
-// output reg MemWrite;
-// output reg MemToReg;
-
-
-// always @(*)
-//     case(op)
-//     // r??
-//         6'h000000: begin
-//             // RegWrite
-//             case(funct)
-//                 6'h04: assign RegWrite = 1'b0;
-//                 default: assign RegWrite = 1'b1;
-//             endcase
-//             // RegDst
-//             case(funct)
-//                 6'h05: assign RegDst = 2'b10;
-//                 default: assign RegDst = 2'b00;
-//             endcase
-//             // ALUSrc �������Ӧ����ôд����ʱд����X
-//             case(funct)
-//                 6'b000000,
-//                 6'b000011,
-//                 6'b000010: assign ALUSrc = 1'b1;
-//                 6'b010000,
-//                 6'b010010: assign ALUSrc = 1'bX;
-//                 default: assign ALUSrc = 1'b0;
-//             endcase
-//             case (funct)
-//                 6'b100000,
-//                 6'b100001: assign ALUOp = 6'd0;
-//                 6'b100010,
-//                 6'b100011: assign ALUOp = 6'd1;
-//                 6'b101010: assign ALUOp = 6'd2;
-//                 6'b101011: assign ALUOp = 6'd3;
-//                 6'b011000,
-//                 6'b011001: assign ALUOp = 6'd13;
-//                 6'b100100: assign ALUOp = 6'd4;
-//                 6'b100111: assign ALUOp = 6'd5;
-//                 6'b100101: assign ALUOp = 6'd6;
-//                 6'b100110: assign ALUOp = 6'd7;
-//                 6'b000100,
-//                 6'b000100: assign ALUOp = 6'd8;
-//                 6'b000111,
-//                 6'b000011: assign ALUOp = 6'd10;
-//                 6'b000110,
-//                 6'b000010: assign ALUOp = 6'd9;
-//                 6'b010000: assign ALUOp = 6'd11;
-//                 6'b010010: assign ALUOp = 6'd12;
-//                 // �����������������lui, llo�����Ǽ򵥵Ĳ���������???�Ĵ�???
-//                 default: assign ALUOp = 6'bX;
-//             endcase
-//             // ֻ�зô���ָ���漰��??
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end 
-//     // i??
-//         6'b101000,
-//         6'b101001,
-//         6'b101011,
-//         6'b101010,
-//         6'b101110: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd0;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b1;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b100000,
-//         6'b100100,
-//         6'b100001,
-//         6'b100101,
-//         6'b100011,
-//         6'b100010,
-//         6'b100110: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd1;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd0;
-//             assign MemRead = 1'b1;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b1;
-//         end
-//         6'b000100: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd18;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b000101: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd19;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b000001: begin
-//             assign ALUSrc = 1'b0;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//             case (rt) 
-//                 5'b00001: begin
-//                     assign RegWrite = 1'b0;
-//                     assign RegDst = 2'bX;
-//                     assign ALUOp = 6'd17;
-//                 end
-//                 5'b00000: begin
-//                     assign RegWrite = 1'b0;
-//                     assign RegDst = 2'bX;
-//                     assign ALUOp = 6'd14;
-//                 end
-//                 5'b10000: begin
-//                     assign RegWrite = 1'b1;
-//                     assign RegDst = 2'd2;
-//                     assign ALUOp = 6'd14;
-//                 end
-//                 5'b10001: begin
-//                     assign RegWrite = 1'b1;
-//                     assign RegDst = 2'd2;
-//                     assign ALUOp = 6'd17;
-//                 end
-//             endcase
-//         end
-//         6'b000111: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd16;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b000110: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd15;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001100: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'b0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd4;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001111: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 2'bX;
-//             assign ALUOp = 6'd8;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001101: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd6;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001110: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd7;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001000,
-//         6'b001001: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd0;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001010: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd2;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b001011: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd0;
-//             assign ALUSrc = 1'b0;
-//             assign ALUOp = 6'd3;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//     // j??
-//         6'b000011: begin
-//             assign RegWrite = 1'b1;
-//             assign RegDst = 2'd2;
-//             assign ALUSrc = 1'bX;
-//             assign ALUOp = 6'bX;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//         6'b000010: begin
-//             assign RegWrite = 1'b0;
-//             assign RegDst = 2'bX;
-//             assign ALUSrc = 1'bX;
-//             assign ALUOp = 6'bX;
-//             assign MemRead = 1'b0;
-//             assign MemWrite = 1'b0;
-//             assign MemToReg = 1'b0;
-//         end
-//     endcase
-
-
-// endmodule

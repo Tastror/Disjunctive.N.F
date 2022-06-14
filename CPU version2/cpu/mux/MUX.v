@@ -74,3 +74,16 @@ module MUX5_32b(
 );
 assign out = (in0 & {32{oneHot[0]}}) | (in1 & {32{oneHot[1]}}) | (in2 & {32{oneHot[2]}}) | (in3 & {32{oneHot[3]}}) | (in4 & {32{oneHot[4]}});
 endmodule
+
+module MUX6_32b(
+    input wire [31:0] in0,
+    input wire [31:0] in1,
+    input wire [31:0] in2,
+    input wire [31:0] in3,
+    input wire [31:0] in4,
+    input wire [31:0] in5,
+    input wire [5:0] oneHot,
+    output wire [31:0] out
+);
+assign out = (in0 & {32{oneHot[0]}}) | (in1 & {32{oneHot[1]}}) | (in2 & {32{oneHot[2]}}) | (in3 & {32{oneHot[3]}}) | (in4 & {32{oneHot[4]}}) | (in5 & {32{oneHot[5]}});
+endmodule

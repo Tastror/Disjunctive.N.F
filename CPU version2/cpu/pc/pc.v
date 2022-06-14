@@ -2,24 +2,54 @@
 
 
 
-module pc_in_if(
+module pc_if_first(
+    // input
+    input wire ME_clt_pc_first_mux,
+    input wire ME_pc_first_mux,
+    input wire [31:0] IF_last_pc,
+    input wire [31:0] ME_pc,
+    // output
+    output wire [31:0] pc_plus_4_or_mem
+);
+
+wire temp;
+assign temp = ME_clt_pc_first_mux & ME_pc_first_mux;
+assign pc_plus_4_or_mem = ME_pc & {32{temp}} | (IF_last_pc + 32'd4) & {32{~temp}};
+
+endmodule
+
+
+
+module pc_if_second_reg(
+
     input wire reset,
     input wire clk,
+
     // input
-    input wire [31:0] pc_from_mem,
-    input wire pc_init_control,
+    input wire [3:0] EX_ctl_pc_second_mux,
+
+    input wire [31:0] pc_plus_4_or_mem,
+    input wire [31:0] ME_imm_32,
+    input wire [31:0] ME_rs_data,
+    
     // output
-    output wire [31:0] pc_out,
-    output wire [31:0] pc_plus_4
+    output wire [31:0] IF_pc_out,
+    output wire [31:0] IF_pc_plus_4
 );
+
 parameter PC_INITIAL = 32'hbfc00000;
+parameter PC_BREAK = 32'hbfc00380;
 
 reg [31:0] pc;
 wire [31:0] pc_next;
 
-assign pc_out = pc;
-assign pc_plus_4 = pc + 32'd4;
-assign pc_next = pc_from_mem & {32{pc_init_control}} | pc_plus_4 & {32{~pc_init_control}};
+assign IF_pc_out = pc;
+assign IF_pc_plus_4 = pc + 32'd4;
+assign pc_next =
+    pc_plus_4_or_mem & {32{EX_ctl_pc_second_mux[0]}} |
+    {{pc[31:28]}, {ME_imm_32[15:0]}, {2'b00}} & {32{EX_ctl_pc_second_mux[1]}} |
+    ME_rs_data & {32{EX_ctl_pc_second_mux[2]}} |
+    PC_BREAK & {32{EX_ctl_pc_second_mux[3]}};
 
 always @ (posedge clk) begin
     pc <= pc_next & {32{~reset}} | PC_INITIAL & {32{reset}};
@@ -29,7 +59,7 @@ endmodule
 
 
 
-module pc_in_ex(
+module pc_ex(
     // input
     input wire [31:0] pc_in_ex,
     input wire [31:0] imm_32_in_ex,
@@ -41,7 +71,7 @@ endmodule
 
 
 
-module pc_in_mem(
+module pc_mem(
     // input
     input wire [31:0] pc_in_mem,
     input wire [31:0] alu_res_in_mem,
@@ -55,58 +85,3 @@ endmodule
 
 module pc_in_wb();
 endmodule
-
-
-
-// module pc (
-//     // output
-//     pc_reg,
-//     // input
-//     rst_n,
-//     clk,
-//     enable,
-//     branch_address,
-//     is_branch,
-//     is_exception,
-//     exception_new_pc,
-//     is_debug,
-//     debug_new_pc,
-//     debug_reset
-// );
-
-// parameter PC_INITIAL = 32'hbfc00000;
-
-// input wire rst_n;
-// input wire clk;
-// input wire enable;
-
-// input wire[31:0] branch_address;
-// input wire is_branch;
-// input wire is_exception;
-// input wire[31:0] exception_new_pc;
-// input wire is_debug;
-// input wire[31:0] debug_new_pc;
-// input wire debug_reset;
-
-// reg[31:0] pc_next;
-// output reg[31:0] pc_reg;
-
-// always @(*) begin
-//     if (!rst_n || debug_reset) begin
-//         pc_next <= PC_INITIAL;
-//     end
-//     else if(enable) begin
-//         pc_next <= is_debug ? debug_new_pc :
-//                          is_exception ? exception_new_pc :
-//                          is_branch ? branch_address :
-//                          pc_reg + 32'd4;
-
-//     end else begin 
-//         pc_next <= pc_reg;
-//     end
-// end
-
-// always @(posedge clk) 
-//     pc_reg <= pc_next;
-
-// endmodule
