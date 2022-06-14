@@ -312,11 +312,6 @@ ALU ALU_0(
 MUX3_5b MUX3_5b_ex_waddr( .oneHot(EX_ctl_rfWriteAddr_mux),
     .in0(EX_rd), .in1(EX_rt), .in2(5'd31), .out(EX_reg_waddr) );
 
-/**
- * EXE used in bypass:
- *   nothing
- */
-
 
 
 
@@ -361,12 +356,6 @@ data_RAM data_RAM_0(
     .res(ME_dataram_rdata)
 );
 
-/**
- * MEM used in bypass:
- *   judgement: ME_reg_waddr
- *   value:     ME_alu_res
- */
-
 
 
 
@@ -394,12 +383,6 @@ assign WB_pc_plus_8 = WB_pc_plus_4 + 32'd4;
 // rfInData: MUX6_32b, [aluRes, imm, PC+4 (PC+8?), ramdata, HI_data, LO_data]
 MUX6_32b MUX6_32b_wb_wdata( .oneHot(WB_ctl_rfWriteData_mux),
     .in0(WB_alu_res), .in1(WB_imm_32), .in2(WB_pc_plus_8), .in3(WB_dataram_rdata), .in4(32'h0), .in5(32'h0), .out(WB_reg_wdata) );
-
-/**
- * WB used in bypass:
- *   judgement: WB_reg_waddr
- *   value:     WB_reg_wdata
- */
 
 
 
