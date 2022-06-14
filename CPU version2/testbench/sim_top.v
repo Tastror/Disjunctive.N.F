@@ -70,7 +70,7 @@ begin
         // instruction 3: add t7 t7 t8
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h01F87820;
-        inst_ram_write_address <= inst_ram_write_address + 32'h10;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
   
     else if (count == 4) begin
@@ -79,7 +79,7 @@ begin
         // instruction 4: sw t7 0x4(t8)
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'hAF0F0004;
-        inst_ram_write_address <= inst_ram_write_address + 32'h10;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
     end
     
     else if (count == 5) begin

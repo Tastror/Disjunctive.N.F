@@ -5,7 +5,7 @@
 module id_control(
     input wire [5:0] opcode,
     input wire [5:0] funct,
-    input wire [5:0] rt,
+    input wire [4:0] rt,
 
     output wire [4:0] ctl_pcValue_mux, // pcValue: MUX5_32b, [PC+4, aluRes, instIndex, temp, useDelaySlot]
 
@@ -139,7 +139,7 @@ assign ctl_rfWriteData_mux[1] = (
 );
 // PC + 8
 assign ctl_rfWriteData_mux[2] = (
-    (~|opcode[5:1] & opcode[0] & rt[5]) |  // 000001, rt[5] = 1
+    (~|opcode[5:1] & opcode[0] & rt[4]) |  // 000001, rt = 1xxxx
     (~|opcode[5:0] & ~|funct[5:4] & ~|funct[2:1] & funct[3] & funct[0]) |  // 000000, funct = 001001
     (~|opcode[5:2] & &opcode[1:0])  // 000011
 );
@@ -165,7 +165,7 @@ assign ctl_rfWriteAddr_mux[1] = (
 );
 // 31
 assign ctl_rfWriteAddr_mux[2] = (
-    (~|opcode[5:1] & opcode[0] & rt[5]) | // 000001, rt = 1xxxxx
+    (~|opcode[5:1] & opcode[0] & rt[4]) | // 000001, rt = 1xxxx
     (~|opcode[5:2] & &opcode[1:0])  // JAL(000011)
 );
 

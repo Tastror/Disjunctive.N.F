@@ -5,7 +5,7 @@ module id_data(
     output wire [5:0] opcode,
     output wire [5:0] funct,
     output wire [4:0] rs,
-    output wire [5:0] rt,
+    output wire [4:0] rt,
     output wire [4:0] rd,
     output wire [4:0] sa,  // sa and base are the same
     output wire [15:0] imm,  // imm and offset are the same

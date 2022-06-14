@@ -73,7 +73,7 @@ wire [15:0] ID_imm;  // imm and offset are the same
 wire [31:0] ID_imm_32;  // ID_imm with sign
 wire [5:0] ID_opcode;
 wire [5:0] ID_funct;
-wire [5:0] ID_rt;
+wire [4:0] ID_rt;
 wire [4:0] ID_rs;
 wire [4:0] ID_rd;
 wire [4:0] ID_sa;  // sa and base are the same
@@ -103,10 +103,12 @@ wire ID_ctl_rf_wen;
 wire [31:0] EX_pc_plus_4;
 wire [15:0] EX_imm;
 wire [31:0] EX_imm_32;
+wire [4:0] EX_rs, EX_rt, EX_rd, EX_sa;
+wire [31:0] EX_rs_data_old, EX_sa_data_old, EX_rt_data_old;
+wire [31:0] EX_rs_data, EX_sa_data, EX_rt_data;
 wire [2:0] EX_ctl_rfAluSrc1_mux; // aluSrc1: MUX3_32b, [rs, sa, PC]
 wire [3:0] EX_ctl_rfAluSrc2_mux; // aluSrc1: MUX4_32b, [rt, imm, {HI}, {LO}]
 wire [19:0] EX_ctl_alu_mux;
-wire [31:0] EX_rs_data, EX_sa_data, EX_rt_data;
 wire [31:0] EX_alu_src1, EX_alu_src2;
 wire [31:0] EX_alu_res;
 wire [31:0] EX_pc_plus_4_plus_4imm;
@@ -114,9 +116,8 @@ wire EX_ctl_dataRam_en;
 wire EX_ctl_dataRam_wen;
 wire [2:0] EX_ctl_rfWriteData_mux; // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
 wire [2:0] EX_ctl_rfWriteAddr_mux; // rfInAddr: MUX3_5b, [rd, rt, 31]
+wire [4:0] EX_reg_waddr;
 wire EX_ctl_rf_wen;
-wire [5:0] EX_rt;
-wire [4:0] EX_rd;
 
 wire [31:0] ME_pc_plus_4;
 wire [31:0] ME_pc_plus_4_plus_4imm;
@@ -126,23 +127,20 @@ wire ME_ctl_dataRam_wen;
 wire [31:0] ME_dataram_rdata;
 wire [31:0] ME_rt_data;
 wire [2:0] ME_ctl_rfWriteData_mux; // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
-wire [2:0] ME_ctl_rfWriteAddr_mux; // rfInAddr: MUX3_5b, [rd, rt, 31]
+wire [4:0] ME_reg_waddr;
 wire ME_ctl_rf_wen;
-wire [5:0] ME_rt;
-wire [4:0] ME_rd;
 
 wire [31:0] WB_pc_plus_4;
 wire [31:0] WB_pc_plus_8;
 wire [31:0] WB_alu_res;
 wire [31:0] WB_dataram_rdata;
 wire [2:0] WB_ctl_rfWriteData_mux; // rfInData: MUX3_32b, [aluRes, DataRamReadData, PC+8]
-wire [2:0] WB_ctl_rfWriteAddr_mux; // rfInAddr: MUX3_5b, [rd, rt, 31]
-wire [5:0] WB_rt;
-wire [4:0] WB_rd;
 
 
 
 
+
+/***** Welcome to IF *****/
 
 pc_in_if pc_if_0(
     .reset(reset), .clk(clk),
@@ -178,6 +176,8 @@ WaitRegs IF_ID_wait(
 
 
 
+
+/***** Welcome to ID *****/
 
 id_data id_data_0(
     // input
@@ -225,11 +225,13 @@ WaitRegs ID_EXE_wait(
     .i62(ID_ctl_rfWriteAddr_mux), .o62(EX_ctl_rfWriteAddr_mux),
     .i81(ID_rt), .o81(EX_rt),
     .i82(ID_rd), .o82(EX_rd),
+    .i83(ID_rs), .o83(EX_rs),
+    .i84(ID_sa), .o84(EX_sa),
     .i161(ID_imm), .o161(EX_imm),
     .i321(ID_pc_plus_4), .o321(EX_pc_plus_4),
-    .i322(ID_reg_rdata1_rs), .o322(EX_rs_data),
-    .i323(ID_reg_rdata2_sa), .o323(EX_sa_data),
-    .i324(ID_reg_rdata3_rt), .o324(EX_rt_data),
+    .i322(ID_reg_rdata1_rs), .o322(EX_rs_data_old),
+    .i323(ID_reg_rdata2_sa), .o323(EX_sa_data_old),
+    .i324(ID_reg_rdata3_rt), .o324(EX_rt_data_old),
     .i325(ID_imm_32), .o325(EX_imm_32),
     .i326(ID_ctl_alu_mux), .o326(EX_ctl_alu_mux)
 );
@@ -238,11 +240,37 @@ WaitRegs ID_EXE_wait(
 
 
 
+/***** Welcome to EXE *****/
+
 pc_in_ex pc_ex_0(
     // input
     .pc_in_ex(EX_pc_plus_4), .imm_32_in_ex(EX_imm_32),
     // output
     .pc_to_mem(EX_pc_plus_4_plus_4imm)
+);
+
+bypass bypass_rs(
+    // input
+    .used_addr(EX_rs), .ME_reg_waddr(ME_reg_waddr), .WB_reg_waddr(WB_reg_waddr),
+    .old_data(EX_rs_data_old), .ME_alu_res(ME_alu_res), .WB_reg_wdata(WB_reg_wdata),
+    // output
+    .changed_data(EX_rs_data)
+);
+
+bypass bypass_sa(
+    // input
+    .used_addr(EX_sa), .ME_reg_waddr(ME_reg_waddr), .WB_reg_waddr(WB_reg_waddr),
+    .old_data(EX_sa_data_old), .ME_alu_res(ME_alu_res), .WB_reg_wdata(WB_reg_wdata),
+    // output
+    .changed_data(EX_sa_data)
+);
+
+bypass bypass_rt(
+    // input
+    .used_addr(EX_rt), .ME_reg_waddr(ME_reg_waddr), .WB_reg_waddr(WB_reg_waddr),
+    .old_data(EX_rt_data_old), .ME_alu_res(ME_alu_res), .WB_reg_wdata(WB_reg_wdata),
+    // output
+    .changed_data(EX_rt_data)
 );
 
 MUX3_32b MUX3_32b_alusrc1( .oneHot(EX_ctl_rfAluSrc1_mux),
@@ -259,6 +287,15 @@ ALU ALU_0(
     .alu_result(EX_alu_res)
 );
 
+// this is usually written in write-back, but considered the bypass, we lift it here
+MUX3_5b MUX3_5b_ex_waddr( .oneHot(EX_ctl_rfWriteAddr_mux),
+    .in0(EX_rd), .in1(EX_rt), .in2(5'd31), .out(EX_reg_waddr) );
+
+/**
+ * EXE used in bypass:
+ *   nothing
+ */
+
 
 
 
@@ -270,9 +307,7 @@ WaitRegs EXE_MEM_wait(
     .i2(EX_ctl_dataRam_wen), .o2(ME_ctl_dataRam_wen),
     .i3(EX_ctl_rf_wen), .o3(ME_ctl_rf_wen),
     .i61(EX_ctl_rfWriteData_mux), .o61(ME_ctl_rfWriteData_mux),
-    .i62(EX_ctl_rfWriteAddr_mux), .o62(ME_ctl_rfWriteAddr_mux),
-    .i81(EX_rt), .o81(ME_rt),
-    .i82(EX_rd), .o82(ME_rd),
+    .i81(EX_reg_waddr), .o81(ME_reg_waddr),
     .i321(EX_pc_plus_4_plus_4imm), .o321(ME_pc_plus_4_plus_4imm),
     .i322(EX_pc_plus_4), .o322(ME_pc_plus_4),
     .i323(EX_alu_res), .o323(ME_alu_res),
@@ -282,6 +317,8 @@ WaitRegs EXE_MEM_wait(
 
 
 
+
+/***** Welcome to MEM *****/
 
 pc_in_mem pc_in_mem(
     // input
@@ -298,6 +335,12 @@ data_RAM data_RAM_0(
     .res(ME_dataram_rdata)
 );
 
+/**
+ * MEM used in bypass:
+ *   judgement: ME_reg_waddr
+ *   value:     ME_alu_res
+ */
+
 
 
 
@@ -307,9 +350,7 @@ WaitRegs MEM_WB_wait(
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),
     .i61(ME_ctl_rfWriteData_mux), .o61(WB_ctl_rfWriteData_mux),
-    .i62(ME_ctl_rfWriteAddr_mux), .o62(WB_ctl_rfWriteAddr_mux),
-    .i81(ME_rt), .o81(WB_rt),
-    .i82(ME_rd), .o82(WB_rd),
+    .i81(ME_reg_waddr), .o81(WB_reg_waddr),
     .i321(ME_pc_plus_4), .o321(WB_pc_plus_4),
     .i322(ME_dataram_rdata), .o322(WB_dataram_rdata),
     .i323(ME_alu_res), .o323(WB_alu_res)
@@ -319,13 +360,18 @@ WaitRegs MEM_WB_wait(
 
 
 
+/***** Welcome to WB *****/
+
 assign WB_pc_plus_8 = WB_pc_plus_4 + 32'd4;
 
 MUX3_32b MUX3_32b_wb_wdata( .oneHot(WB_ctl_rfWriteData_mux),
     .in0(WB_alu_res), .in1(WB_dataram_rdata), .in2(WB_pc_plus_8), .out(WB_reg_wdata) );
 
-MUX3_5b MUX3_5b_wb_waddr( .oneHot(WB_ctl_rfWriteAddr_mux),
-    .in0(WB_rd), .in1(WB_rt), .in2(5'd31), .out(WB_reg_waddr) );
+/**
+ * WB used in bypass:
+ *   judgement: WB_reg_waddr
+ *   value:     WB_reg_wdata
+ */
 
 
 
