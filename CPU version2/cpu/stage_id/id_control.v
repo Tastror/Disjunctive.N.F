@@ -29,7 +29,10 @@ module id_control(
     output wire ctl_low_wen,
     output wire ctl_high_wen,
     output wire [1:0] ctl_low_mux,  // [alu_res, rs_data]
-    output wire [1:0] ctl_high_mux  // [alu_res, rs_data]
+    output wire [1:0] ctl_high_mux,  // [alu_res_high, rs_data]
+
+    output wire ctl_jr_choke,
+    output wire ctl_chosen_choke
 );
 
 wire ADD, ADDI, ADDU, ADDIU, SUB, SUBU, SLT, SLTI, SLTU, SLTIU, DIV, DIVU, MUL, MULT, MULTU;
@@ -296,5 +299,15 @@ assign ctl_high_mux[0] =
 assign ctl_high_mux[1] =
     MTHI
 ;
+
+
+assign ctl_jr_choke =
+    JR | JALR
+;
+
+assign ctl_chosen_choke =
+    BEQ | BNE | BGEZ | BGTZ | BLEZ | BLTZ | BGEZAL | BLTZAL
+;
+
 
 endmodule

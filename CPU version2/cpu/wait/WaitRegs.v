@@ -6,6 +6,7 @@ module WaitRegs(
     input wire clk,
     input wire en,
     input wire rst,
+    input wire wait_stop,
 
     input wire i1,
     input wire i2,
@@ -118,7 +119,11 @@ begin
         o32b <= 32'd0;
         o32c <= 32'd0;
         o32d <= 32'd0;
-    end else if (en) begin
+    end
+    else if (wait_stop) begin
+        // do nothing
+    end
+    else if (en) begin
         o1 <= i1;
         o2 <= i2;
         o3 <= i3;

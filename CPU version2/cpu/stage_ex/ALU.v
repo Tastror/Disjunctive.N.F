@@ -107,11 +107,11 @@ assign less_result =
     all_neg & (alu_src1 < alu_src2)
 ;
 assign less_result_zero = less_result[0];
-assign geq_result = ~less_result;
+assign geq_result = {{31'h0}, ~less_result[0]};
 assign geq_result_zero = geq_result[0];
 assign equal_result = (alu_src1 == alu_src2);
 assign equal_result_zero = equal_result[0];
-assign neq_result = ~equal_result;
+assign neq_result = {{31'h0}, ~equal_result[0]};
 assign neq_result_zero = neq_result[0];
 assign great_result =
     all_pos & (alu_src1 > alu_src2) |
@@ -120,7 +120,7 @@ assign great_result =
     all_neg & (alu_src1 > alu_src2)
 ;
 assign great_result_zero = great_result[0];
-assign leq_result = ~great_result;
+assign leq_result = {{31'h0}, ~great_result[0]};
 assign leq_result_zero = leq_result[0];
 assign less_unsigned_result = alu_src1 < alu_src2;
 assign lui_result = {alu_src2[15:0], {16'h0}};

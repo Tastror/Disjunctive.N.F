@@ -23,6 +23,20 @@ sw t7 0x4(t8)    AF0F0004
 lw t3 0x4(t8)    8F0B0004
 addi t1 t1 0x1    21290001
 addi t1 t1 0x1    21290001
+jal 0x1f    0C00001F
 nop    00000000
 
+lui t4 0x100    3C0C0100
+blez t4 0x10    19800010
+nop    00000000
+bgez t4 0x10    05810010
+nop    00000000
+
+j 0x2f    0800002F
+
+0x1f:
+nop    00000000
+add t1 t2 t3    014B4820
+jr ra    03E00008
+nop    00000000
 

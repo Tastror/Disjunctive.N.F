@@ -84,6 +84,7 @@ wire [2:0] ID_sel;
 wire ID_ctl_pc_first_mux;
 wire [3:0] ID_ctl_pc_second_mux; // [first, index, rs_data, break]
 wire [31:0] ID_reg_rdata1_rs, ID_reg_rdata2_rt;
+wire [31:0] ID_may_choke_rs_data;
 wire [31:0] ID_high_rdata, ID_low_rdata;
 wire [1:0] ID_ctl_rfAluSrc1_mux; // aluSrc1: MUX2_32b, [rs_data, sa]
 wire [2:0] ID_ctl_rfAluSrc2_mux; // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
@@ -99,6 +100,9 @@ wire ID_ctl_low_wen;
 wire ID_ctl_high_wen;
 wire [1:0] ID_ctl_low_mux;  // [alu_res, rs_data]
 wire [1:0] ID_ctl_high_mux;  // [alu_res_high, rs_data]
+wire ID_regctl_wait_stop_rs, ID_regctl_wait_stop_rt, ID_regctl_wait_stop_al, ID_regctl_wait_stop_chosen, ID_regctl_wait_stop;
+wire ID_regctl_reset_rs, ID_regctl_reset_rt, ID_regctl_reset_al, ID_regctl_reset_chosen, ID_regctl_reset;
+wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
 
 
 wire [31:0] EX_pc_plus_4;
@@ -111,6 +115,7 @@ wire [31:0] EX_rs_data, EX_rt_data;
 wire [31:0] EX_high_rdata_old, EX_low_rdata_old;
 wire [31:0] EX_high_rdata, EX_low_rdata;
 wire EX_ctl_pc_first_mux;
+wire EX_pc_control;
 wire [3:0] EX_ctl_pc_second_mux;
 wire [1:0] EX_ctl_rfAluSrc1_mux; // aluSrc1: MUX2_32b, [rs_data, sa]
 wire [2:0] EX_ctl_rfAluSrc2_mux; // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
@@ -148,8 +153,6 @@ wire [31:0] ME_alures_merge;
 wire [1:0] ME_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
 wire [4:0] ME_reg_waddr;
 wire ME_ctl_rf_wen;
-wire ME_ctl_pc_first_mux;
-wire ME_pc_control;
 wire ME_ctl_low_wen;
 wire ME_ctl_high_wen;
 wire [31:0] ME_low_wdata, ME_high_wdata;
@@ -174,17 +177,17 @@ wire [31:0] IF_temp;
 
 pc_if_first pc_if_first_0(
     // input
-    .ME_pc_first_mux(ME_pc_control),
-    .IF_last_pc(IF_pc), .ME_pc(ME_pc_plus_4_plus_4imm),
+    .EX_pc_first_mux(EX_pc_control),
+    .IF_last_pc(IF_pc), .EX_pc(EX_pc_plus_4_plus_4imm),
     // output
     .pc_plus_4_or_mem(IF_temp)
 );
 
 pc_if_second_reg pc_if_second_reg_0(
-    .reset(reset), .clk(clk),
+    .reset(reset), .clk(clk), .wait_stop(ID_regctl_wait_stop),
     // input
-    .EX_ctl_pc_second_mux(EX_ctl_pc_second_mux),
-    .pc_plus_4_or_mem(IF_temp), .ME_index(ME_index), .ME_rs_data(ME_rs_data),
+    .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
+    .pc_plus_4_or_mem(IF_temp), .ID_index(ID_index), .ID_may_choke_rs_data(ID_may_choke_rs_data),
     // output
     .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4)
 );
@@ -206,7 +209,7 @@ instruction_RAM inst_RAM_0(
 
 
 WaitRegs IF_ID_wait(
-    .clk(clk), .en(1), .rst(0),
+    .clk(clk), .en(1), .rst(0), .wait_stop(ID_regctl_wait_stop),
     // in-out pair
     .i321(IF_instruction), .o321(ID_instruction),
     .i322(IF_pc_plus_4), .o322(ID_pc_plus_4)
@@ -239,7 +242,8 @@ id_control id_control_0(
     .ctl_alures_merge_mux(ID_ctl_alures_merge_mux),
     .ctl_dataRam_en(ID_ctl_dataRam_en), .ctl_dataRam_wen(ID_ctl_dataRam_wen),
     .ctl_rfWriteData_mux(ID_ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ID_ctl_rfWriteAddr_mux), .ctl_rf_wen(ID_ctl_rf_wen),
-    .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux)
+    .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux),
+    .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke)
 );
 
 regs regs_0(
@@ -260,11 +264,59 @@ low_high_reg low_high_reg_0(
     .low_rdata(ID_low_rdata), .high_rdata(ID_high_rdata)
 );
 
+choke choke_rs(
+    // input
+    .I_am_reading_reg(ID_ctl_rfAluSrc1_mux[0]),
+    .he_is_reading_ram(EX_ctl_dataRam_en),
+    .used_addr(ID_rs),
+    .EX_addr(EX_reg_waddr),
+    // output
+    .IFID_wait_stop(ID_regctl_wait_stop_rs),
+    .IDEXE_reset(ID_regctl_reset_rs)
+);
+
+choke choke_rt(
+    // input
+    .I_am_reading_reg(ID_ctl_rfAluSrc2_mux[0]),
+    .he_is_reading_ram(EX_ctl_dataRam_en),
+    .used_addr(ID_rt),
+    .EX_addr(EX_reg_waddr),
+    // output
+    .IFID_wait_stop(ID_regctl_wait_stop_rt),
+    .IDEXE_reset(ID_regctl_reset_rt)
+);
+
+choke_jr choke_jr(
+    // input
+    .I_am_reading(ID_ctl_jr_choke),
+    .used_addr(ID_rs),
+    .EX_addr(EX_reg_waddr),
+    .ME_addr(ME_reg_waddr),
+    // output
+    .IFID_wait_stop(ID_regctl_wait_stop_al),
+    .IDEXE_reset(ID_regctl_reset_al)
+);
+
+choke_chosen choke_chosen(
+    // input
+    .clk(clk),
+    .chosen_choke(ID_ctl_chosen_choke),
+    // output
+    .IFID_wait_stop(ID_regctl_wait_stop_chosen)
+    // .IDEXE_reset(ID_regctl_reset_chosen) no reset here
+);
+
+assign ID_regctl_wait_stop = ID_regctl_wait_stop_rs | ID_regctl_wait_stop_rt | ID_regctl_wait_stop_al | ID_regctl_wait_stop_chosen;
+assign ID_regctl_reset = ID_regctl_reset_rs | ID_regctl_reset_rt | ID_regctl_reset_al;
+assign ID_may_choke_rs_data =
+    ID_reg_rdata1_rs & {32{~ID_regctl_wait_stop_al}} | EX_rs_data & {32{ID_regctl_wait_stop_al}};
+
+
 
 
 
 WaitRegs ID_EXE_wait(
-    .clk(clk), .en(1), .rst(0),
+    .clk(clk), .en(1), .rst(ID_regctl_reset), .wait_stop(0),
     // in-out pair
     .i1(ID_ctl_dataRam_en), .o1(EX_ctl_dataRam_en),
     .i2(ID_ctl_dataRam_wen), .o2(EX_ctl_dataRam_wen),
@@ -370,12 +422,13 @@ MUX2_32b MUX2_32b_low( .oneHot(EX_ctl_low_mux),
 MUX2_32b MUX2_32b_high( .oneHot(EX_ctl_high_mux),
     .in0(EX_alu_res_high), .in1(EX_rs_data), .out(EX_high_wdata) );
 
+assign EX_pc_control = (EX_alu_res[0]) & EX_ctl_pc_first_mux;
 
 
 
 
 WaitRegs EXE_MEM_wait(
-    .clk(clk), .en(1), .rst(reset),
+    .clk(clk), .en(1), .rst(reset), .wait_stop(0),
     // in-out pair
     .i1(EX_ctl_dataRam_en), .o1(ME_ctl_dataRam_en),
     .i2(EX_ctl_dataRam_wen), .o2(ME_ctl_dataRam_wen),
@@ -404,8 +457,6 @@ WaitRegs EXE_MEM_wait(
 
 /***** Welcome to MEM *****/
 
-assign ME_pc_control = (ME_alu_res[0]) & ME_ctl_pc_first_mux;
-
 data_RAM data_RAM_0(
     // in
     .clk(clk), .en(ME_ctl_dataRam_en), .we(ME_ctl_dataRam_wen),
@@ -419,7 +470,7 @@ data_RAM data_RAM_0(
 
 
 WaitRegs MEM_WB_wait(
-    .clk(clk), .en(1), .rst(reset),
+    .clk(clk), .en(1), .rst(reset), .wait_stop(0),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),
     .i4(ME_ctl_low_wen), .o4(WB_ctl_low_wen),

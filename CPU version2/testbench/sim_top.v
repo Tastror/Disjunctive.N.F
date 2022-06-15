@@ -256,6 +256,114 @@ begin
     else if (count == 24) begin
         debug <= 1;
         cpu_reset <= 1;
+        // jal 0x1f (31, inst No.32)
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h0C00001F;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 25) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // nop
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h00000000;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 26) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // lui t4 0x100
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h3C0C0100;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 27) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // blez t4 0x10
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h19800010;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 28) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // nop
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h00000000;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 29) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // bgez t4 0x10
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h05810010;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 30) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // nop
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h00000000;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 31) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // j 0x2f
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h0800002F;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 32) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // nop
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h00000000;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 33) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // add t1 t2 t3
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h014B4820;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 34) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // jr ra
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h03E00008;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 35) begin
+        debug <= 1;
+        cpu_reset <= 1;
+        // nop
+        inst_ram_write_enable <= 1;
+        inst_ram_write_data <= 32'h00000000;
+        inst_ram_write_address <= inst_ram_write_address + 32'h4;
+    end
+
+    else if (count == 36) begin
+        debug <= 1;
+        cpu_reset <= 1;
         // nop
         inst_ram_write_enable <= 1;
         inst_ram_write_data <= 32'h00000000;
