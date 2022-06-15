@@ -15,6 +15,8 @@ module WaitRegs(
     input wire i6,
     input wire i7,
     input wire i8,
+    input wire [1:0] i21,
+    input wire [1:0] i22,
     input wire [4:0] i51,
     input wire [4:0] i52,
     input wire [5:0] i61,
@@ -34,6 +36,12 @@ module WaitRegs(
     input wire [32:0] i325,
     input wire [32:0] i326,
     input wire [32:0] i327,
+    input wire [32:0] i328,
+    input wire [32:0] i329,
+    input wire [32:0] i32a,
+    input wire [32:0] i32b,
+    input wire [32:0] i32c,
+    input wire [32:0] i32d,
     
     output reg o1,
     output reg o2,
@@ -43,6 +51,8 @@ module WaitRegs(
     output reg o6,
     output reg o7,
     output reg o8,
+    output reg [1:0] o21,
+    output reg [1:0] o22,
     output reg [4:0] o51,
     output reg [4:0] o52,
     output reg [5:0] o61,
@@ -61,7 +71,13 @@ module WaitRegs(
     output reg [32:0] o324,
     output reg [32:0] o325,
     output reg [32:0] o326,
-    output reg [32:0] o327
+    output reg [32:0] o327,
+    output reg [32:0] o328,
+    output reg [32:0] o329,
+    output reg [32:0] o32a,
+    output reg [32:0] o32b,
+    output reg [32:0] o32c,
+    output reg [32:0] o32d
 );
 
 always @ (posedge clk)
@@ -75,6 +91,8 @@ begin
         o6 <= 0;
         o7 <= 0;
         o8 <= 0;
+        o21 <= 2'd0;
+        o22 <= 2'd0;
         o51 <= 5'd0;
         o52 <= 5'd0;
         o61 <= 6'd0;
@@ -94,6 +112,12 @@ begin
         o325 <= 32'd0;
         o326 <= 32'd0;
         o327 <= 32'd0;
+        o328 <= 32'd0;
+        o329 <= 32'd0;
+        o32a <= 32'd0;
+        o32b <= 32'd0;
+        o32c <= 32'd0;
+        o32d <= 32'd0;
     end else if (en) begin
         o1 <= i1;
         o2 <= i2;
@@ -103,6 +127,8 @@ begin
         o6 <= i6;
         o7 <= i7;
         o8 <= i8;
+        o21 <= i21;
+        o22 <= i22;
         o51 <= i51;
         o52 <= i52;
         o61 <= i61;
@@ -122,6 +148,12 @@ begin
         o325 <= i325;
         o326 <= i326;
         o327 <= i327;
+        o328 <= i328;
+        o329 <= i329;
+        o32a <= i32a;
+        o32b <= i32b;
+        o32c <= i32c;
+        o32d <= i32d;
     end
 end
 

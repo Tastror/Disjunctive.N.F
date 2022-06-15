@@ -1,7 +1,28 @@
-addi t7 zero 0xaf4    200F0AF4
-addi t8 zero 0x8    20180008
+32'hbfc00000 (begin)
+
+addi t7 zero 0xfaf4    200FFAF4
+lui t8 0x123    3C180123
 add t7 t7 t8    01F87820
+sub t7 t7 t8    01F87822
+slt s1 t7 t8    01F8882A
+sltu s2 t7 t8    01F8902B
+div t7 t8    01F8001A
+mfhi s3    00009810
+mtlo s3    02600013
+mult t7 t8    01F80018
+mflo s4    0000A012
+mthi s4    02800011
+and t2 t7 t8    01F85024
+or t3 t7 t8    01F85825
+nor t4 t7 t8    01F86027
+xor t5 t7 t8    01F86826
+sll s5 t7 0x2    000FA880
+srl s5 t7 0x2    000FA882
+sra s5 t7 0x2    000FA883
 sw t7 0x4(t8)    AF0F0004
 lw t3 0x4(t8)    8F0B0004
-
 addi t1 t1 0x1    21290001
+addi t1 t1 0x1    21290001
+nop    00000000
+
+

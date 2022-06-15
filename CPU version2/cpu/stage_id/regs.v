@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+
+
 module regs(
     //input
     input wire clk,
@@ -65,5 +67,43 @@ assign ans2 = |(raddr2 == waddr) & we;
 assign rdata2 = (registers[raddr2] & {32{~ans2}}) | (wdata & {32{ans2}});
 assign ans3 = |(raddr3 == waddr) & we;
 assign rdata3 = (registers[raddr3] & {32{~ans3}}) | (wdata & {32{ans3}});
+
+endmodule
+
+
+
+module low_high_reg(
+    //input
+    input wire clk,
+    input wire rst,
+    input wire low_we,
+    input wire high_we,
+    input wire [31:0] low_wdata,
+    input wire [31:0] high_wdata,
+    //output
+    output wire [31:0] low_rdata,
+    output wire [31:0] high_rdata
+);
+
+reg [31:0] low_reg;
+reg [31:0] high_reg;
+
+always @ (posedge clk) begin
+    if (rst) begin
+        low_reg <= 32'h0;
+        high_reg <= 32'h0;
+    end
+    else begin
+        if (low_we) begin
+            low_reg <= low_wdata;
+        end
+        if (high_we) begin
+            high_reg <= high_wdata;
+        end
+    end
+end
+
+assign low_rdata = (low_reg & {32{~low_we}}) | (low_wdata & {32{low_we}});
+assign high_rdata = (high_reg & {32{~high_we}}) | (high_wdata & {32{high_we}});
 
 endmodule

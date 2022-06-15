@@ -14,21 +14,22 @@ module id_control(
     output wire [3:0] ctl_pc_second_mux, // [first, index, rs_data, break]
 
     output wire [1:0] ctl_aluSrc1_mux, // aluSrc1: MUX2_32b, [rs_data, sa]
-    output wire [2:0] ctl_aluSrc2_mux, // aluSrc1: MUX3_32b, [rt_data, imm, 0]
-    output wire [15:0] ctl_alu_mux,
+    output wire [2:0] ctl_aluSrc2_mux, // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
+    output wire [13:0] ctl_alu_mux,
     output wire ctl_alu_op2,
+    output wire [3:0] ctl_alures_merge_mux, // alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
     
     output wire ctl_dataRam_en,
     output wire ctl_dataRam_wen,
 
     output wire ctl_rf_wen,
-    output wire [5:0] ctl_rfWriteData_mux, // rfInData: MUX6_32b, [aluRes, imm, PC+4, ramdata, HI_data, LO_data]
+    output wire [1:0] ctl_rfWriteData_mux, // rfInData: MUX2_32b, [alures_merge, ramdata]
     output wire [2:0] ctl_rfWriteAddr_mux, // rfInAddr: MUX3_5b, [rd, rt, 31]
 
     output wire ctl_low_wen,
     output wire ctl_high_wen,
-    output wire [1:0] ctl_low_mux,  // [aluRes, rs_data]
-    output wire [1:0] ctl_high_mux  // [aluRes, rs_data]
+    output wire [1:0] ctl_low_mux,  // [alu_res, rs_data]
+    output wire [1:0] ctl_high_mux  // [alu_res, rs_data]
 );
 
 wire ADD, ADDI, ADDU, ADDIU, SUB, SUBU, SLT, SLTI, SLTU, SLTIU, DIV, DIVU, MUL, MULT, MULTU;
@@ -65,7 +66,7 @@ assign OR = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100101);
 assign ORI = (opcode == 6'b001101);
 assign XOR = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b100110);
 assign XORI = (opcode == 6'b001110);
-assign SLL = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000000) & |rd & |rt & |sa; // if not add this, sll and nop will be at the same time...
+assign SLL = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000000) & (|rd | |rt | |sa); // if not add this, sll and nop will be at the same time...
 assign SRL = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000010);
 assign SRA = (opcode == 6'b000000) & (rs == 5'b00000) & (funct == 6'b000011);
 assign SLLV = (opcode == 6'b000000) & (sa == 5'b00000) & (funct == 6'b000100);
@@ -84,7 +85,7 @@ assign JAL = (opcode == 6'b000011);
 assign JR = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b001000);
 assign JALR = (opcode == 6'b000000) & (rt == 5'b00000) & (sa == 5'b00000) & (funct == 6'b001001);
 assign MFHI = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010000);
-assign MFLO = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (sa == 5'b00001) & (funct == 6'b010010);
+assign MFLO = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010010);
 assign MTHI = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010001);
 assign MTLO = (opcode == 6'b000000) & (rt == 5'b00000) & (rd == 5'b00000) & (sa == 5'b00000) & (funct == 6'b010011);
 assign BREAK = (opcode == 6'b000000) & (funct == 6'b001101);
@@ -141,7 +142,7 @@ assign ctl_aluSrc1_mux[1] =
 ;
 
 
-// aluSrc1: MUX3_32b, [rt_data, imm, 0]
+// aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
 assign ctl_aluSrc2_mux[0] =
     ADD | ADDU | SUB | SUBU | SLT | SLTU | DIV | DIVU | MUL | MULT |
     MULTU | AND | NOR | OR | XOR | SLL | SRL | SRA | SLLV | SRLV | SRAV |
@@ -149,15 +150,15 @@ assign ctl_aluSrc2_mux[0] =
 ;
 assign ctl_aluSrc2_mux[1] =
     ADDI | ADDIU | SLTI | SLTIU | ANDI | ORI | XORI | LB | LBU | LH | LHU |
-    LW | SB | SH | SW
+    LW | SB | SH | SW | LUI
 ;
 assign ctl_aluSrc2_mux[2] =
     BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL
 ;
 
 
-//              0  1  2  3  4  5  6  7   8   9  10  11
-// ctl_alu_mux [+, -, *, /, &, |, ^, <<, >>, <, ==, >]
+//              0  1  2  3  4  5  6  7   8   9  10  11 12
+// ctl_alu_mux [+, -, *, /, &, |, ^, <<, >>, <, ==, >, <u]
 // [5 op2 ~|, 9 op2 >=, a op2 !=, b op2 <=]
 assign ctl_alu_mux[0] =
     ADD | ADDI | ADDU | ADDIU | LB | LBU | LH | LHU | LW | SB | SH | SW
@@ -187,7 +188,7 @@ assign ctl_alu_mux[8] =
     SRL | SRA | SRLV | SRAV
 ;
 assign ctl_alu_mux[9] =
-    SLT | SLTI | SLTU | SLTIU | BGEZ | BLTZ | BGEZAL | BLTZAL
+    SLT | SLTI | BGEZ | BLTZ | BGEZAL | BLTZAL
 ;
 assign ctl_alu_mux[10] =
     BEQ | BNE
@@ -195,11 +196,34 @@ assign ctl_alu_mux[10] =
 assign ctl_alu_mux[11] =
     BGTZ | BLEZ
 ;
+assign ctl_alu_mux[12] =
+    SLTU | SLTIU
+;
+assign ctl_alu_mux[13] =
+    LUI
+;
 
 
 assign ctl_alu_op2 =
     ADDU | ADDIU | SUBU | SLTU | SLTIU | DIVU | MULTU | NOR | SRA | SRAV |
      BNE | BGEZ | BLEZ | BGEZAL
+;
+
+
+// alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+assign ctl_alures_merge_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA |
+    SLLV | SRLV | SRAV | LB | LBU | LH | LHU | LW | LUI
+;
+assign ctl_alures_merge_mux[1] =
+    BGEZAL | BLTZAL | JAL | JALR
+;
+assign ctl_alures_merge_mux[2] =
+    MFHI
+;
+assign ctl_alures_merge_mux[3] =
+    MFLO
 ;
 
 
@@ -221,26 +245,14 @@ assign ctl_rf_wen =
 ;
 
 
-// rfInData: MUX6_32b, [aluRes, imm, PC+4, ramdata, HI_data, LO_data]
+// rfInData: MUX2_32b, [alures_merge, ramdata]
 assign ctl_rfWriteData_mux[0] =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA | SLLV |
-    SRLV | SRAV
+    SRLV | SRAV | LUI | BGEZAL | BLTZAL | JAL | JALR | MFHI | MFLO
 ;
 assign ctl_rfWriteData_mux[1] =
-    LUI
-;
-assign ctl_rfWriteData_mux[2] =
-    BGEZAL | BLTZAL | JAL | JALR
-;
-assign ctl_rfWriteData_mux[3] =
     LB | LBU | LH | LHU | LW
-;
-assign ctl_rfWriteData_mux[4] =
-    MFHI
-;
-assign ctl_rfWriteData_mux[5] =
-    MFLO
 ;
 
 
@@ -268,7 +280,7 @@ assign ctl_high_wen =
 ;
 
 
-// [aluRes, rs_data]
+// [alu_res, rs_data]
 assign ctl_low_mux[0] =
     DIV | DIVU | MULT | MULTU
 ;
@@ -277,7 +289,7 @@ assign ctl_low_mux[1] =
 ;
 
 
-// [aluRes, rs_data]
+// [alu_res, rs_data]
 assign ctl_high_mux[0] =
     DIV | DIVU | MULT | MULTU
 ;
