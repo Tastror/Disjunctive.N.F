@@ -53,49 +53,90 @@
 
 
 module CPU(
-    input wire clk,
-    input wire resetn,
 
-    input wire inst_sram_addr_ok,
-    input wire inst_sram_data_ok,
-    input wire [31:0] inst_sram_rdata,
-    output wire inst_sram_req,
-    output wire inst_sram_wr,
-    output wire [1:0] inst_sram_size,
-    output wire [3:0] inst_sram_wstrb,
-    output wire [31:0] inst_sram_addr,
-    output wire [31:0] inst_sram_wdata,
+    // face to AXI
 
-    input wire data_sram_addr_ok,
-    input wire data_sram_data_ok,
-    input wire [31:0] data_sram_rdata,
-    output reg data_sram_req,
-    output reg data_sram_wr,
-    output reg data_sram_size,
-    output reg [3:0] data_sram_wstrb,
-    output reg [31:0] data_sram_addr,   
-    output reg [31:0] data_sram_wdata,
+    // basic
+    input wire ACLK,
+    input wire ARESTn,
 
-    output reg [31:0] debug_wb_pc,
-    output reg debug_wb_rf_wen,  
-    output reg debug_wb_rf_wnum,
-    output reg [31:0] debug_wb_rf_wdata
+    // write address
+    output wire [3:0] AWID,
+    output wire [31:0] AWADDR,
+    output wire [7:0] AWLEN,
+    output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
+    output wire [1:0] AWLOCK,
+    output wire [3:0] AWCACHE,
+    output wire [2:0] AWPROT,
+    // output wire [31:0] AWQOS,
+    // output wire [31:0] AWREGION,
+    // output wire [31:0] AWUSER,
+    output wire AWVALID,
+    output wire AWREADY,
 
-    // debug in
-    // input wire debug,
-    // input wire inst_ram_write_enable,
-    // input wire [31:0] inst_ram_write_data,
-    // input wire [31:0] inst_ram_write_address
+    // write data
+    output wire [3:0] WID,
+    output wire [31:0] WDATA,
+    output wire [3:0] WSTRB,
+    output wire WLAST,
+    // output wire [31:0] WUSER,
+    output wire WVALID,
+    input wire WREADY,  // slave
+
+    // write response
+    input wire [3:0] BID,  // slave
+    input wire [1:0] BRESP,  // slave
+    // input wire [31:0] BUSER,  // slave
+    input wire [31:0] BVALID,  // slave
+    output wire [31:0] BREADY,
+
+    // read address
+    output wire [3:0] ARID,
+    output wire [31:0] ARADDR,
+    output wire [7:0] ARLEN,
+    output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
+    output wire [1:0] ARLOCK,
+    output wire [3:0] ARCACHE,
+    output wire [2:0] ARPROT,
+    // output wire [31:0] ARQOS,
+    // output wire [31:0] ARREGION,
+    // output wire [31:0] ARUSER,
+    output wire ARVALID,
+    input wire ARREADY,  // slave
+
+    // read response
+    input wire [3:0] RID,  // slave
+    input wire [31:0] RDATA,  // slave
+    input wire [1:0] RRESP,  // slave
+    input wire RLAST,  // slave
+    // input wire [31:0] RUSER,  // slave
+    input wire RVALID,  // slave
+    output wire RREADY,
+
+    // outher
+    input wire [31:0] CSYSREQ,
+    input wire [31:0] CSYSACK,
+    input wire [31:0] CACTIVE
 );
 
-
+wire clk;
+assign clk = ACLK;
 wire reset;
-assign reset = ~resetn;
+assign reset = ~ARESTn;
 
 
 wire [31:0] IF_pc, IF_pc_plus_4;
 wire IF_pc_wait_stop_choke;
 wire [31:0] IF_instruction;
+
+
+wire inst_interface_enable;
+wire inst_interface_pc;
+wire [31:0] inst_interface_this_time_pc;
+wire [31:0] inst_interface_instruction;
+wire inst_interface_cache_wait_stop_choke;
 
 
 wire [31:0] ID_pc_plus_4;
@@ -223,28 +264,43 @@ pc_if_second_reg pc_if_second_reg_0(
     .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4)
 );
 
-// wire [31:0] IF_pc_or_debug;
-// assign IF_pc_or_debug = inst_ram_write_address & {32{debug}} | IF_pc & {32{~debug}};
+inst_cache inst_cache_0(
+    // input (face to all)
+    .clk(clk), .reset(reset),
+    // input (face to CPU)
+    .PC(IF_pc),
+    // output (face to CPU)
+    .instruction(IF_instruction),
+    .pc_wait_stop_choke(IF_pc_wait_stop_choke),
+    // output (face to interface)
+    .interface_enable(inst_interface_enable),
+    .interface_PC(inst_interface_pc),
+    // input (face to interface)
+    .this_time_pc(inst_interface_this_time_pc),
+    .interface_instruction(inst_interface_instruction),
+    .cache_wait_stop_choke(inst_interface_cache_wait_stop_choke)
+);
 
-// instruction_RAM inst_RAM_0(
-//     // debug in
-//     .write_enable(inst_ram_write_enable), .write_data(inst_ram_write_data),
-//     // input
-//     .clk(clk), .pc(IF_pc_or_debug),
-//     // output
-//     .instruction(IF_instruction)
-// );
-
-inst_cache inst_cache_inst_ram_0(
-    // input
-    .reset(reset), .clk(clk),
-    .pc(IF_pc),
-    .inst_sram_addr_ok(inst_sram_addr_ok), .inst_sram_data_ok(inst_sram_data_ok), .inst_sram_rdata(inst_sram_rdata),
-    // output (to SRAM)
-    .inst_sram_req(inst_sram_req), .inst_sram_wr(inst_sram_wr), .inst_sram_size(inst_sram_size),
-    .inst_sram_wstrb(inst_sram_wstrb), .inst_sram_addr(inst_sram_addr), .inst_sram_wdata(inst_sram_wdata),
-    // output (to CPU)
-    .pc_wait_stop_choke(IF_pc_wait_stop_choke), .IF_instruction(IF_instruction)
+inst_ram_interface inst_ram_interface_0(
+    // input (face to all)
+    .clk(clk), .reset(reset),
+    // input data (face to CACHE)
+    .enable(inst_interface_enable),
+    .interface_PC(inst_interface_pc),
+    // output data (face to CACHE)
+    .this_time_pc(inst_interface_this_time_pc),
+    .interface_instruction(inst_interface_instruction),
+    .cache_wait_stop_choke(inst_interface_cache_wait_stop_choke),
+    // read address (face to AXI)
+    .ARID(ARID), .ARADDR(ARADDR),
+    .ARLEN(ARLEN), .ARSIZE(ARSIZE),
+    .ARBURST(ARBURST), .ARLOCK(ARLOCK),
+    .ARCACHE(ARCACHE), .ARPROT(ARPROT),
+    .ARVALID(ARVALID), .ARREADY(ARREADY),
+    // read response (face to AXI)
+    .RID(RID), .RDATA(RDATA),
+    .RRESP(RRESP), .RLAST(RLAST),
+    .RVALID(RVALID), .RREAD(RREAD)
 );
 
 
