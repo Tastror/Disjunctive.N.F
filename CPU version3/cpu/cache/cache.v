@@ -27,11 +27,14 @@ module inst_cache(
 reg [31:0] inst_data_reg [0:65535];
 // 128KB name, store {{pc[31:18]}, {pc[1:0]}}
 reg [15:0] name [0:65535];
+integer i;
 
 
 always @ (posedge clk) begin
     if (reset) begin
-        name[0:65535] <= 0;
+        for (i = 0; i < 65536; i = i + 1) begin
+            name[i] <= 16'h0;
+        end
     end
     else if (~cache_wait_stop_choke) begin
         name[this_time_pc[17:2]] <= {{this_time_pc[31:18]}, {this_time_pc[1:0]}};

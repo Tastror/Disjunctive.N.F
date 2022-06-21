@@ -15,15 +15,15 @@ module inst_ram_interface(
     output wire cache_wait_stop_choke,
 
     // read address (face to AXI)
-    output wire [3:0] ARID,
-    output wire [31:0] ARADDR,
-    output wire [7:0] ARLEN,
-    output wire [2:0] ARSIZE,
-    output wire [1:0] ARBURST,
-    output wire [1:0] ARLOCK,
-    output wire [3:0] ARCACHE,
-    output wire [2:0] ARPROT,
-    output wire ARVALID,
+    output reg [3:0] ARID,
+    output reg [31:0] ARADDR,
+    output reg [7:0] ARLEN,
+    output reg [2:0] ARSIZE,
+    output reg [1:0] ARBURST,
+    output reg [1:0] ARLOCK,
+    output reg [3:0] ARCACHE,
+    output reg [2:0] ARPROT,
+    output reg ARVALID,
     input wire ARREADY,
 
     // read response (face to AXI)
@@ -32,7 +32,7 @@ module inst_ram_interface(
     input wire [1:0] RRESP,
     input wire RLAST,
     input wire RVALID,
-    output wire RREADY
+    output reg RREADY
 );
 
 
@@ -67,7 +67,7 @@ always @(posedge clk) begin
         // h201 after shake and inst_sram_data_ok is 1 (received success), and is sending first time
     end
 
-    else if (~enbale) begin
+    else if (~enable) begin
         // do nothing
     end
 
