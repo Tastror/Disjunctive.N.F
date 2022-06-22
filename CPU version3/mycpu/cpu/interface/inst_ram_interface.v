@@ -39,15 +39,15 @@ module inst_ram_interface(
 reg [31:0] flag;
 reg [31:0] this_time_pc_reg;
 
-
 assign this_time_pc = this_time_pc_reg;
 assign interface_instruction = RDATA;
-assign cache_wait_stop_choke = (RVALID && (flag == 32'h200 || flag == 32'h301)) ? 1'b0 : 1'b1;
+assign cache_wait_stop_choke = (flag == 32'h200 || flag == 32'h301) && RVALID ? 1'b0 : 1'b1;
 
 
 always @(posedge clk) begin
 
     if (reset) begin
+        flag <= 32'h0;
         ARID <= 4'h0;
         ARADDR <= 32'h0;
         ARLEN <= 8'h0;
@@ -61,10 +61,10 @@ always @(posedge clk) begin
         // flag:
         // 0 reset and ready to send
         // 1 is sending first time
-        // h300 req is 1 and see addr_ok be 1 (shake failed)
-        // h200 req is 1 but addr_ok not 1 (shake success), and is receiving first time
-        // h301 after shake and inst_sram_data_ok is not 1 (received failed)
-        // h201 after shake and inst_sram_data_ok is 1 (received success), and is sending first time
+        // flag is 2 or h300, and ARREADY is 1 (shake failed)
+        // flag is 2 or h300, and ARREADY is not 1 (shake success). receiving first time
+        // h301 after shake and RVALID is not 1 (received failed)
+        // h201 after shake and RVALID is 1 (received success), and is sending first time
     end
 
     else if (~enable) begin
@@ -81,19 +81,32 @@ always @(posedge clk) begin
             ARSIZE <= 3'h4;
             ARBURST <= 2'h1;
             ARVALID <= 1'h1;
+            RREADY <= 1'h0;
         end
 
-        if ((flag == 32'h1 || flag == 32'h300) && ~ARREADY) begin
+        if (flag == 32'h1) begin
+            flag <= 32'h2;
+            ARID <= 4'h0;
+            ARADDR <= interface_PC;
+            this_time_pc_reg <= interface_PC;
+            ARSIZE <= 3'h4;
+            ARBURST <= 2'h1;
+            ARVALID <= 1'h1;
+            RREADY <= 1'h0;
+        end
+
+        if ((flag == 32'h2 || flag == 32'h300) && ~ARREADY) begin
             flag <= 32'h300;
         end
 
-        if ((flag == 32'h1 || flag == 32'h300) && ARREADY) begin
+        if ((flag == 32'h2 || flag == 32'h300) && ARREADY) begin
             flag <= 32'h200;
             ARID <= 4'h0;
             ARADDR <= 32'h0;
             ARSIZE <= 3'h0;
             ARBURST <= 2'h0;
             ARVALID <= 1'h0;
+            RREADY <= 1'h0;
         end
 
         if ((flag == 32'h200 || flag == 32'h301) && ~RVALID) begin

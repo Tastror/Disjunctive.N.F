@@ -217,7 +217,7 @@ assign ctl_alu_op2 =
 assign ctl_alures_merge_mux[0] =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA |
-    SLLV | SRLV | SRAV | LB | LBU | LH | LHU | LW | LUI
+    SLLV | SRLV | SRAV | LB | LBU | LH | LHU | LW | LUI | SB | SH | SW
 ;
 assign ctl_alures_merge_mux[1] =
     BGEZAL | BLTZAL | JAL | JALR

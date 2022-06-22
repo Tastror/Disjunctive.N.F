@@ -7,7 +7,7 @@ module WaitRegs(
     input wire en,
     input wire rst,
     input wire wait_stop,
-    // wait_stop > rst > en
+    //  rst > wait_stop > en
 
     input wire i1,
     input wire i2,
@@ -84,10 +84,7 @@ module WaitRegs(
 
 always @ (posedge clk)
 begin
-    if (wait_stop) begin
-        // do nothing
-    end
-    else if (rst) begin
+    if (rst) begin
         o1 <= 0;
         o2 <= 0;
         o3 <= 0;
@@ -123,6 +120,9 @@ begin
         o32b <= 32'd0;
         o32c <= 32'd0;
         o32d <= 32'd0;
+    end
+    else if (wait_stop) begin
+        // do nothing
     end
     else if (en) begin
         o1 <= i1;

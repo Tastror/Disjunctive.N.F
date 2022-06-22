@@ -44,7 +44,7 @@ end
 
 assign interface_PC = PC;
 assign interface_enable = (name[PC[17:2]] == {{PC[31:18]}, {PC[1:0]}}) ? 1'b0 : 1'b1;
-assign pc_wait_stop_choke = ~interface_enable ? 1'b0 : cache_wait_stop_choke;
-assign instruction = ~interface_enable ? inst_data_reg[PC[17:2]] : interface_instruction;
+assign pc_wait_stop_choke = interface_enable ? cache_wait_stop_choke : 1'b0;
+assign instruction = interface_enable ? interface_instruction : inst_data_reg[PC[17:2]];
 
 endmodule

@@ -115,10 +115,16 @@ module CPU(
     input wire RVALID,  // slave
     output wire RREADY,
 
-    // outher
-    input wire [31:0] CSYSREQ,
-    input wire [31:0] CSYSACK,
-    input wire [31:0] CACTIVE
+    // // outher
+    // input wire [31:0] CSYSREQ,
+    // input wire [31:0] CSYSACK,
+    // input wire [31:0] CACTIVE,
+
+    // debug trace
+    output reg [31:0] debug_wb_pc,
+    output reg [3:0] debug_wb_rf_wen,
+    output reg [4:0] debug_wb_rf_wnum,
+    output reg [31:0] debug_wb_rf_wdata
 );
 
 wire clk;
@@ -133,12 +139,13 @@ wire [31:0] IF_instruction;
 
 
 wire inst_interface_enable;
-wire inst_interface_pc;
+wire [31:0] inst_interface_pc;
 wire [31:0] inst_interface_this_time_pc;
 wire [31:0] inst_interface_instruction;
 wire inst_interface_cache_wait_stop_choke;
 
 
+wire [31:0] ID_pc;
 wire [31:0] ID_pc_plus_4;
 wire [31:0] ID_instruction;
 wire [15:0] ID_imm;  // imm and offset are the same
@@ -176,6 +183,7 @@ wire ID_regctl_reset_rs, ID_regctl_reset_rt, ID_regctl_reset_al, ID_regctl_reset
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
 
 
+wire [31:0] EX_pc;
 wire [31:0] EX_pc_plus_4;
 wire [31:0] EX_pc_plus_8;
 wire [25:0] EX_index;
@@ -211,6 +219,7 @@ wire [1:0] EX_ctl_high_mux;  // [alu_res_high, rs_data]
 wire [31:0] EX_low_wdata, EX_high_wdata;
 
 
+wire [31:0] ME_pc;
 wire [31:0] ME_pc_plus_4;
 wire [31:0] ME_pc_plus_4_plus_4imm;
 wire [25:0] ME_index;
@@ -226,9 +235,12 @@ wire [4:0] ME_reg_waddr;
 wire ME_ctl_rf_wen;
 wire ME_ctl_low_wen;
 wire ME_ctl_high_wen;
+wire [31:0] ME_dram_waddr;
+wire [31:0] ME_dram_wdata;
 wire [31:0] ME_low_wdata, ME_high_wdata;
 
 
+wire [31:0] WB_pc;
 wire [31:0] WB_dataram_rdata;
 wire [31:0] WB_alures_merge;
 wire [1:0] WB_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
@@ -243,23 +255,34 @@ wire [31:0] WB_low_wdata, WB_high_wdata;
 
 
 
+/***** debug *****/
+
+always @ (posedge clk) begin
+    if (WB_ctl_rf_wen) begin
+        debug_wb_pc <= WB_pc;
+        debug_wb_rf_wen <= 4'b1;
+        debug_wb_rf_wnum <= WB_reg_waddr;
+        debug_wb_rf_wdata <= WB_reg_wdata;
+    end
+    else begin
+        debug_wb_pc <= 32'b0;
+        debug_wb_rf_wen <= 4'b0;
+        debug_wb_rf_wnum <= 5'b0;
+        debug_wb_rf_wdata <= 32'b0;
+    end
+end
+
+
+
+
 /***** Welcome to IF *****/
 
-wire [31:0] IF_temp;
-
-pc_if_first pc_if_first_0(
-    // input
-    .EX_pc_first_mux(EX_pc_control),
-    .IF_last_pc(IF_pc), .EX_pc(EX_pc_plus_4_plus_4imm),
-    // output
-    .pc_plus_4_or_mem(IF_temp)
-);
-
-pc_if_second_reg pc_if_second_reg_0(
+pc_if_reg pc_if_reg_0(
     // input
     .reset(reset), .clk(clk), .wait_stop(ID_regctl_wait_stop | IF_pc_wait_stop_choke),
-    .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
-    .pc_plus_4_or_mem(IF_temp), .ID_index(ID_index), .ID_may_choke_rs_data(ID_may_choke_rs_data),
+    .EX_ctl_pc_first_mux(EX_pc_control), .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
+    .EX_pc_plus_4_plus_4imm(EX_pc_plus_4_plus_4imm), .ID_index(ID_index), .ID_may_choke_rs_data(ID_may_choke_rs_data),
+    .need_EX_choke(ID_ctl_chosen_choke),
     // output
     .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4)
 );
@@ -300,7 +323,7 @@ inst_ram_interface inst_ram_interface_0(
     // read response (face to AXI)
     .RID(RID), .RDATA(RDATA),
     .RRESP(RRESP), .RLAST(RLAST),
-    .RVALID(RVALID), .RREAD(RREAD)
+    .RVALID(RVALID), .RREADY(RREADY)
 );
 
 
@@ -311,7 +334,8 @@ WaitRegs IF_ID_wait(
     .clk(clk), .en(1), .rst(IF_pc_wait_stop_choke), .wait_stop(ID_regctl_wait_stop),
     // in-out pair
     .i321(IF_instruction), .o321(ID_instruction),
-    .i322(IF_pc_plus_4), .o322(ID_pc_plus_4)
+    .i322(IF_pc_plus_4), .o322(ID_pc_plus_4),
+    .i323(IF_pc), .o323(ID_pc)
 );
 
 
@@ -444,7 +468,8 @@ WaitRegs ID_EXE_wait(
     .i326(ID_ctl_alu_mux), .o326(EX_ctl_alu_mux),
     .i327(ID_index), .o327(EX_index),
     .i328(ID_low_rdata), .o328(EX_low_rdata_old),
-    .i329(ID_high_rdata), .o329(EX_high_rdata_old)
+    .i329(ID_high_rdata), .o329(EX_high_rdata_old),
+    .i32a(ID_pc), .o32a(EX_pc)
 );
 
 
@@ -548,7 +573,8 @@ WaitRegs EXE_MEM_wait(
     .i327(EX_index), .o327(ME_index),
     .i328(EX_low_wdata), .o328(ME_low_wdata),
     .i329(EX_high_wdata), .o329(ME_high_wdata),
-    .i32a(EX_alures_merge), .o32a(ME_alures_merge)
+    .i32a(EX_alures_merge), .o32a(ME_alures_merge),
+    .i32b(EX_pc), .o32b(ME_pc)
 );
 
 
@@ -557,10 +583,13 @@ WaitRegs EXE_MEM_wait(
 
 /***** Welcome to MEM *****/
 
+assign ME_dram_waddr = ME_alu_res;
+assign ME_dram_wdata = ME_rt_data;
+
 data_RAM data_RAM_0(
     // in
     .clk(clk), .en(ME_ctl_dataRam_en), .we(ME_ctl_dataRam_wen),
-    .data_address(ME_alu_res), .data(ME_rt_data),
+    .data_address(ME_dram_waddr), .data(ME_dram_wdata),
     // out
     .res(ME_dataram_rdata)
 );
@@ -580,7 +609,8 @@ WaitRegs MEM_WB_wait(
     .i322(ME_dataram_rdata), .o322(WB_dataram_rdata),
     .i323(ME_alures_merge), .o323(WB_alures_merge),
     .i324(ME_low_wdata), .o324(WB_low_wdata),
-    .i325(ME_high_wdata), .o325(WB_high_wdata)
+    .i325(ME_high_wdata), .o325(WB_high_wdata),
+    .i326(ME_pc), .o326(WB_pc)
 );
 
 
