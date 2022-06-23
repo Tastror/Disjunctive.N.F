@@ -88,8 +88,8 @@ module CPU(
     input wire [3:0] BID,  // slave
     input wire [1:0] BRESP,  // slave
     // input wire [31:0] BUSER,  // slave
-    input wire [31:0] BVALID,  // slave
-    output wire [31:0] BREADY,
+    input wire BVALID,  // slave
+    output wire BREADY,
 
     // read address
     output wire [3:0] ARID,
@@ -127,26 +127,46 @@ module CPU(
     output reg [31:0] debug_wb_rf_wdata
 );
 
+
+
+// global
 wire clk;
 assign clk = ACLK;
 wire reset;
 assign reset = ~ARESTn;
 
 
-wire [31:0] IF_pc, IF_pc_plus_4;
-wire IF_pc_wait_stop_choke;
+wire [3:0] I_ARID, D_ARID;
+wire [31:0] I_ARADDR, D_ARADDR;
+wire [7:0] I_ARLEN, D_ARLEN;
+wire [2:0] I_ARSIZE, D_ARSIZE;
+wire [1:0] I_ARBURST, D_ARBURST;
+wire [1:0] I_ARLOCK, D_ARLOCK;
+wire [3:0] I_ARCACHE, D_ARCACHE;
+wire [2:0] I_ARPROT, D_ARPROT;
+wire I_ARVALID, D_ARVALID;
+wire I_RREADY, D_RREADY;
+
+
+// IF
+wire [31:0] IF_pc;
+wire [31:0] IF_pc_plus_4;
 wire [31:0] IF_instruction;
+wire IF_pc_instruction_ready;
+wire IF_cache_call_begin;
+wire IF_cache_return_ready;
+wire IF_inst_interface_call_begin;
+wire IF_inst_interface_return_ready;
+wire [31:0] IF_inst_interface_addr;
+wire [31:0] IF_inst_interface_rdata;
 
 
-wire inst_interface_enable;
-wire [31:0] inst_interface_pc;
-wire [31:0] inst_interface_this_time_pc;
-wire [31:0] inst_interface_instruction;
-wire inst_interface_cache_wait_stop_choke;
 
-
+// ID
+    // pc
 wire [31:0] ID_pc;
 wire [31:0] ID_pc_plus_4;
+    // self used things
 wire [31:0] ID_instruction;
 wire [15:0] ID_imm;  // imm and offset are the same
 wire [31:0] ID_imm_32, ID_sa_32;  // ID_imm & ID_sa with sign
@@ -159,33 +179,41 @@ wire [4:0] ID_sa;  // sa and base are the same
 wire [25:0] ID_index;
 wire [15:0] ID_code;
 wire [2:0] ID_sel;
+    // things that will transport to next place
 wire ID_ctl_pc_first_mux;
-wire [3:0] ID_ctl_pc_second_mux; // [first, index, rs_data, break]
-wire [31:0] ID_reg_rdata1_rs, ID_reg_rdata2_rt;
+wire [3:0] ID_ctl_pc_second_mux; // MUX4_32b, [first, index, rs_data, break]
+wire [31:0] ID_reg_rdata_rs, ID_reg_rdata_rt;
 wire [31:0] ID_may_choke_rs_data;
 wire [31:0] ID_high_rdata, ID_low_rdata;
-wire [1:0] ID_ctl_rfAluSrc1_mux; // aluSrc1: MUX2_32b, [rs_data, sa]
-wire [2:0] ID_ctl_rfAluSrc2_mux; // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
+wire [1:0] ID_ctl_rfAluSrc1_mux; // MUX2_32b, [rs_data, sa]
+wire [2:0] ID_ctl_rfAluSrc2_mux; // MUX3_32b, [rt_data, imm_32, 0]
 wire [13:0] ID_ctl_alu_mux;
 wire ID_ctl_alu_op2;
+wire [3:0] ID_ctl_alures_merge_mux; // MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
 wire ID_ctl_dataRam_en;
 wire ID_ctl_dataRam_wen;
-wire [3:0] ID_ctl_alures_merge_mux; // alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
-wire [1:0] ID_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
-wire [2:0] ID_ctl_rfWriteAddr_mux; // rfInAddr: MUX3_5b, [rd, rt, 31]
 wire ID_ctl_rf_wen;
 wire ID_ctl_low_wen;
 wire ID_ctl_high_wen;
-wire [1:0] ID_ctl_low_mux;  // [alu_res, rs_data]
-wire [1:0] ID_ctl_high_mux;  // [alu_res_high, rs_data]
-wire ID_regctl_wait_stop_rs, ID_regctl_wait_stop_rt, ID_regctl_wait_stop_al, ID_regctl_wait_stop_chosen, ID_regctl_wait_stop;
-wire ID_regctl_reset_rs, ID_regctl_reset_rt, ID_regctl_reset_al, ID_regctl_reset_chosen, ID_regctl_reset;
+wire [1:0] ID_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
+wire [2:0] ID_ctl_rfWriteAddr_mux; // MUX3_5b, [rd, rt, 31]
+wire [1:0] ID_ctl_low_mux;  // MUX2_32b, [alu_res, rs_data]
+wire [1:0] ID_ctl_high_mux;  // MUX2_32b, [alu_res_high, rs_data]
+wire IFID_ready_rs, IFID_ready_rt, IFID_ready_jr, IFID_ready_chosen;
+wire IFID_ready_all;
+wire IDEXE_delete_rs, IDEXE_delete_rt, IDEXE_delete_jr, IDEXE_delete_chosen;
+wire IDEXE_delete_all;
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
 
 
+
+// EX
+    // pc
 wire [31:0] EX_pc;
 wire [31:0] EX_pc_plus_4;
 wire [31:0] EX_pc_plus_8;
+wire [31:0] EX_pc_plus_4_plus_4imm;
+    // self used things
 wire [25:0] EX_index;
 wire [31:0] EX_imm_32, EX_sa_32;
 wire [4:0] EX_rs, EX_rt, EX_rd, EX_sa;
@@ -193,63 +221,86 @@ wire [31:0] EX_rs_data_old, EX_rt_data_old;
 wire [31:0] EX_rs_data, EX_rt_data;
 wire [31:0] EX_high_rdata_old, EX_low_rdata_old;
 wire [31:0] EX_high_rdata, EX_low_rdata;
-wire EX_ctl_pc_first_mux;
-wire EX_pc_control;
-wire [3:0] EX_ctl_pc_second_mux;
-wire [1:0] EX_ctl_rfAluSrc1_mux; // aluSrc1: MUX2_32b, [rs_data, sa]
-wire [2:0] EX_ctl_rfAluSrc2_mux; // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
+wire [1:0] EX_ctl_rfAluSrc1_mux; // MUX2_32b, [rs_data, sa]
+wire [31:0] EX_alu_src1;
+wire [2:0] EX_ctl_rfAluSrc2_mux; // MUX3_32b, [rt_data, imm_32, 0]
+wire [31:0] EX_alu_src2;
 wire [13:0] EX_ctl_alu_mux;
 wire EX_ctl_alu_op2;
-wire [31:0] EX_alu_src1, EX_alu_src2;
 wire [31:0] EX_alu_res, EX_alu_res_high;
 wire EX_alu_zero;
-wire [31:0] EX_pc_plus_4_plus_4imm;
+wire [3:0] EX_ctl_alures_merge_mux; // MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+wire [31:0] EX_alures_merge;
+wire [2:0] EX_ctl_rfWriteAddr_mux; // MUX3_5b, [rd, rt, 31]
+wire [4:0] EX_reg_waddr;
+wire [1:0] EX_ctl_low_mux;  // MUX2_32b, [alu_res, rs_data]
+wire [31:0] EX_low_wdata;
+wire [1:0] EX_ctl_high_mux;  // MUX2_32b, [alu_res_high, rs_data]
+wire [31:0] EX_high_wdata;
+wire EX_ctl_pc_first_mux_old;
+wire EX_ctl_pc_first_mux;
 wire EX_ctl_dataRam_en;
 wire EX_ctl_dataRam_wen;
-wire [31:0] EX_alures_merge;
-wire [3:0] EX_ctl_alures_merge_mux; // alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
-wire [1:0] EX_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
-wire [2:0] EX_ctl_rfWriteAddr_mux; // rfInAddr: MUX3_5b, [rd, rt, 31]
-wire [4:0] EX_reg_waddr;
+    // things that will transport to next place
 wire EX_ctl_rf_wen;
 wire EX_ctl_low_wen;
 wire EX_ctl_high_wen;
-wire [1:0] EX_ctl_low_mux;  // [alu_res, rs_data]
-wire [1:0] EX_ctl_high_mux;  // [alu_res_high, rs_data]
-wire [31:0] EX_low_wdata, EX_high_wdata;
+wire [1:0] EX_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 
 
+
+// ME
+    // pc
 wire [31:0] ME_pc;
 wire [31:0] ME_pc_plus_4;
 wire [31:0] ME_pc_plus_4_plus_4imm;
+    // self used things
 wire [25:0] ME_index;
 wire [31:0] ME_alu_res, ME_alu_res_high;
+wire [31:0] ME_rs_data, ME_rt_data;
 wire ME_alu_zero;
 wire ME_ctl_dataRam_en;
 wire ME_ctl_dataRam_wen;
+wire [31:0] ME_dram_waddr;
+wire [31:0] ME_dram_wdata;
 wire [31:0] ME_dataram_rdata;
-wire [31:0] ME_rs_data, ME_rt_data;
+wire ME_data_cache_return_ready;
+wire ME_data_interface_enable;
+wire ME_write_enable;
+wire [2:0] ME_read_size;
+wire [2:0] ME_write_size;
+wire [31:0] ME_data_interface_raddr;
+wire [31:0] ME_data_interface_waddr;
+wire [31:0] ME_data_interface_wdata;
+wire ME_data_interface_call_begin;
+wire ME_data_interface_return_ready;
+wire [31:0] ME_data_interface_rdata;
+    // things that will transport to next place
 wire [31:0] ME_alures_merge;
-wire [1:0] ME_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
-wire [4:0] ME_reg_waddr;
 wire ME_ctl_rf_wen;
 wire ME_ctl_low_wen;
 wire ME_ctl_high_wen;
-wire [31:0] ME_dram_waddr;
-wire [31:0] ME_dram_wdata;
+wire [1:0] ME_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
+wire [4:0] ME_reg_waddr;
 wire [31:0] ME_low_wdata, ME_high_wdata;
 
 
+
+// WB
+    // pc
 wire [31:0] WB_pc;
-wire [31:0] WB_dataram_rdata;
+    // self used things
+wire [1:0] WB_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [31:0] WB_alures_merge;
-wire [1:0] WB_ctl_rfWriteData_mux; // rfInData: MUX2_32b, [alures_merge, ramdata]
+wire [31:0] WB_dataram_rdata;
+wire [31:0] WB_reg_wdata;
+    // things that will transport to next place
 wire WB_ctl_rf_wen;
 wire [4:0] WB_reg_waddr;
-wire [31:0] WB_reg_wdata;
 wire WB_ctl_low_wen;
 wire WB_ctl_high_wen;
-wire [31:0] WB_low_wdata, WB_high_wdata;
+wire [31:0] WB_low_wdata;
+wire [31:0] WB_high_wdata;
 
 
 
@@ -278,52 +329,58 @@ end
 /***** Welcome to IF *****/
 
 pc_if_reg pc_if_reg_0(
+    // global input
+    .clk(clk), .reset(reset), .enable(1),
     // input
-    .reset(reset), .clk(clk), .wait_stop(ID_regctl_wait_stop | IF_pc_wait_stop_choke),
-    .EX_ctl_pc_first_mux(EX_pc_control), .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
+    .pc_call_begin(1),
+    .pc_next_update_begin(IFID_ready_chosen),
+    .EX_ctl_pc_first_mux(EX_ctl_pc_first_mux), .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
     .EX_pc_plus_4_plus_4imm(EX_pc_plus_4_plus_4imm), .ID_index(ID_index), .ID_may_choke_rs_data(ID_may_choke_rs_data),
-    .need_EX_choke(ID_ctl_chosen_choke),
     // output
-    .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4)
+    .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4),
+    .pc_instruction_ready(IF_pc_instruction_ready),
+    // output (face to cache)
+    .cache_call_begin(IF_cache_call_begin),
+    // input (face to cache)
+    .cache_return_ready(IF_cache_return_ready & test)
 );
 
 inst_cache inst_cache_0(
-    // input (face to all)
-    .clk(clk), .reset(reset),
+    // global input
+    .clk(clk), .reset(reset), .enable(1),
     // input (face to CPU)
-    .PC(IF_pc),
+    .cache_call_begin(IF_cache_call_begin),
+    .pc(IF_pc),
     // output (face to CPU)
-    .instruction(IF_instruction),
-    .pc_wait_stop_choke(IF_pc_wait_stop_choke),
+    .cache_return_ready(IF_cache_return_ready),
+    .cache_return_instruction(IF_instruction),
     // output (face to interface)
-    .interface_enable(inst_interface_enable),
-    .interface_PC(inst_interface_pc),
+    .inst_interface_call_begin(IF_inst_interface_call_begin),
+    .inst_interface_addr(IF_inst_interface_addr),
     // input (face to interface)
-    .this_time_pc(inst_interface_this_time_pc),
-    .interface_instruction(inst_interface_instruction),
-    .cache_wait_stop_choke(inst_interface_cache_wait_stop_choke)
+    .inst_interface_return_ready(IF_inst_interface_return_ready),
+    .inst_interface_rdata(IF_inst_interface_rdata)
 );
 
 inst_ram_interface inst_ram_interface_0(
-    // input (face to all)
-    .clk(clk), .reset(reset),
+    // global input
+    .clk(clk), .reset(reset), .enable(1),
     // input data (face to CACHE)
-    .enable(inst_interface_enable),
-    .interface_PC(inst_interface_pc),
+    .inst_interface_call_begin(IF_inst_interface_call_begin),
+    .inst_interface_addr(IF_inst_interface_addr),
     // output data (face to CACHE)
-    .this_time_pc(inst_interface_this_time_pc),
-    .interface_instruction(inst_interface_instruction),
-    .cache_wait_stop_choke(inst_interface_cache_wait_stop_choke),
+    .inst_interface_return_ready(IF_inst_interface_return_ready),
+    .inst_interface_rdata(IF_inst_interface_rdata),
     // read address (face to AXI)
-    .ARID(ARID), .ARADDR(ARADDR),
-    .ARLEN(ARLEN), .ARSIZE(ARSIZE),
-    .ARBURST(ARBURST), .ARLOCK(ARLOCK),
-    .ARCACHE(ARCACHE), .ARPROT(ARPROT),
-    .ARVALID(ARVALID), .ARREADY(ARREADY),
+    .ARID(I_ARID), .ARADDR(I_ARADDR),
+    .ARLEN(I_ARLEN), .ARSIZE(I_ARSIZE),
+    .ARBURST(I_ARBURST), .ARLOCK(I_ARLOCK),
+    .ARCACHE(I_ARCACHE), .ARPROT(I_ARPROT),
+    .ARVALID(I_ARVALID), .ARREADY(ARREADY),
     // read response (face to AXI)
     .RID(RID), .RDATA(RDATA),
     .RRESP(RRESP), .RLAST(RLAST),
-    .RVALID(RVALID), .RREADY(RREADY)
+    .RVALID(RVALID), .RREADY(I_RREADY)
 );
 
 
@@ -331,7 +388,11 @@ inst_ram_interface inst_ram_interface_0(
 
 
 WaitRegs IF_ID_wait(
-    .clk(clk), .en(1), .rst(IF_pc_wait_stop_choke), .wait_stop(ID_regctl_wait_stop),
+    .clk(clk), .reset(reset), .enable(1),
+    .delete(0),
+    .pause(IF_pc_instruction_ready),
+    .save(IF_pc_instruction_ready),
+    .resume(IFID_ready_all & IF_pc_instruction_ready),
     // in-out pair
     .i321(IF_instruction), .o321(ID_instruction),
     .i322(IF_pc_plus_4), .o322(ID_pc_plus_4),
@@ -375,7 +436,7 @@ regs regs_0(
     .we(WB_ctl_rf_wen), .waddr(WB_reg_waddr), .wdata(WB_reg_wdata),
     .raddr1(ID_rs), .raddr2(ID_rt),
     // output
-    .rdata1(ID_reg_rdata1_rs), .rdata2(ID_reg_rdata2_rt)
+    .rdata1(ID_reg_rdata_rs), .rdata2(ID_reg_rdata_rt)
 );
 
 low_high_reg low_high_reg_0(
@@ -394,8 +455,8 @@ choke choke_rs(
     .used_addr(ID_rs),
     .EX_addr(EX_reg_waddr),
     // output
-    .IFID_wait_stop(ID_regctl_wait_stop_rs),
-    .IDEXE_reset(ID_regctl_reset_rs)
+    .IFID_ready(IFID_ready_rs),
+    .IDEXE_delete(IDEXE_delete_rs)
 );
 
 choke choke_rt(
@@ -405,8 +466,8 @@ choke choke_rt(
     .used_addr(ID_rt),
     .EX_addr(EX_reg_waddr),
     // output
-    .IFID_wait_stop(ID_regctl_wait_stop_rt),
-    .IDEXE_reset(ID_regctl_reset_rt)
+    .IFID_ready(IFID_ready_rt),
+    .IDEXE_delete(IDEXE_delete_rt)
 );
 
 choke_jr choke_jr(
@@ -416,36 +477,38 @@ choke_jr choke_jr(
     .EX_addr(EX_reg_waddr),
     .ME_addr(ME_reg_waddr),
     // output
-    .IFID_wait_stop(ID_regctl_wait_stop_al),
-    .IDEXE_reset(ID_regctl_reset_al)
+    .IFID_ready(IFID_ready_jr),
+    .IDEXE_delete(IDEXE_delete_jr)
 );
 
 choke_chosen choke_chosen(
     // input
-    .clk(clk),
+    .chosen_return_ready(1),
     .chosen_choke(ID_ctl_chosen_choke),
     // output
-    .IFID_wait_stop(ID_regctl_wait_stop_chosen)
-    // .IDEXE_reset(ID_regctl_reset_chosen) no reset here
+    .IFID_ready(IFID_ready_chosen),
+    .IDEXE_delete(IDEXE_delete_chosen)
 );
 
-assign ID_regctl_wait_stop = ID_regctl_wait_stop_rs | ID_regctl_wait_stop_rt | ID_regctl_wait_stop_al | ID_regctl_wait_stop_chosen;
-assign ID_regctl_reset = ID_regctl_reset_rs | ID_regctl_reset_rt | ID_regctl_reset_al;
+assign IFID_ready_all = IFID_ready_rs & IFID_ready_rt & IFID_ready_jr & IFID_ready_chosen;
+assign IDEXE_delete_all = IDEXE_delete_rs | IDEXE_delete_rt | IDEXE_delete_jr;
 assign ID_may_choke_rs_data =
-    ID_reg_rdata1_rs & {32{~ID_regctl_wait_stop_al}} | EX_rs_data & {32{ID_regctl_wait_stop_al}};
+    ID_reg_rdata_rs & {32{IFID_ready_jr}} | EX_rs_data & {32{~IFID_ready_jr}};
 
 
 
 
 
 WaitRegs ID_EXE_wait(
-    .clk(clk), .en(1), .rst(ID_regctl_reset), .wait_stop(0),
+    .clk(clk), .reset(reset), .enable(1),
+    .delete(IDEXE_delete_all),
+    .pause(1), .save(1), .resume(1),
     // in-out pair
     .i1(ID_ctl_dataRam_en), .o1(EX_ctl_dataRam_en),
     .i2(ID_ctl_dataRam_wen), .o2(EX_ctl_dataRam_wen),
     .i3(ID_ctl_rf_wen), .o3(EX_ctl_rf_wen),
     .i4(ID_ctl_alu_op2), .o4(EX_ctl_alu_op2),
-    .i5(ID_ctl_pc_first_mux), .o5(EX_ctl_pc_first_mux),
+    .i5(ID_ctl_pc_first_mux), .o5(EX_ctl_pc_first_mux_old),
     .i6(ID_ctl_low_wen), .o6(EX_ctl_low_wen),
     .i7(ID_ctl_high_wen), .o7(EX_ctl_high_wen),
     .i21(ID_ctl_low_mux), .o21(EX_ctl_low_mux),
@@ -458,11 +521,10 @@ WaitRegs ID_EXE_wait(
     .i82(ID_rd), .o82(EX_rd),
     .i83(ID_rs), .o83(EX_rs),
     .i84(ID_sa), .o84(EX_sa),
-    .i161(ID_ctl_pc_second_mux), .o161(EX_ctl_pc_second_mux),
     .i162(ID_ctl_alures_merge_mux), .o162(EX_ctl_alures_merge_mux),
     .i321(ID_pc_plus_4), .o321(EX_pc_plus_4),
-    .i322(ID_reg_rdata1_rs), .o322(EX_rs_data_old),
-    .i323(ID_reg_rdata2_rt), .o323(EX_rt_data_old),
+    .i322(ID_reg_rdata_rs), .o322(EX_rs_data_old),
+    .i323(ID_reg_rdata_rt), .o323(EX_rt_data_old),
     .i324(ID_imm_32), .o324(EX_imm_32),
     .i325(ID_sa_32), .o325(EX_sa_32),
     .i326(ID_ctl_alu_mux), .o326(EX_ctl_alu_mux),
@@ -546,19 +608,20 @@ MUX2_32b MUX2_32b_low( .oneHot(EX_ctl_low_mux),
 MUX2_32b MUX2_32b_high( .oneHot(EX_ctl_high_mux),
     .in0(EX_alu_res_high), .in1(EX_rs_data), .out(EX_high_wdata) );
 
-assign EX_pc_control = (EX_alu_res[0]) & EX_ctl_pc_first_mux;
+assign EX_ctl_pc_first_mux = (EX_alu_res[0]) & EX_ctl_pc_first_mux_old;
 
 
 
 
 
 WaitRegs EXE_MEM_wait(
-    .clk(clk), .en(1), .rst(reset), .wait_stop(0),
+    .clk(clk), .reset(reset), .enable(1),
+    .delete(0),
+    .pause(1), .save(1), .resume(1),
     // in-out pair
     .i1(EX_ctl_dataRam_en), .o1(ME_ctl_dataRam_en),
     .i2(EX_ctl_dataRam_wen), .o2(ME_ctl_dataRam_wen),
     .i3(EX_ctl_rf_wen), .o3(ME_ctl_rf_wen),
-    .i4(EX_ctl_pc_first_mux), .o4(ME_ctl_pc_first_mux),
     .i5(EX_alu_zero), .o5(ME_alu_zero),
     .i6(EX_ctl_low_wen), .o6(ME_ctl_low_wen),
     .i7(EX_ctl_high_wen), .o7(ME_ctl_high_wen),
@@ -586,20 +649,145 @@ WaitRegs EXE_MEM_wait(
 assign ME_dram_waddr = ME_alu_res;
 assign ME_dram_wdata = ME_rt_data;
 
-data_RAM data_RAM_0(
-    // in
-    .clk(clk), .en(ME_ctl_dataRam_en), .we(ME_ctl_dataRam_wen),
-    .data_address(ME_dram_waddr), .data(ME_dram_wdata),
-    // out
-    .res(ME_dataram_rdata)
+data_cache data_cache_0(
+    // global input
+    .clk(clk), .reset(reset), .enable(ME_ctl_dataRam_en),
+
+    // input (face to CPU)
+    .wen(ME_ctl_dataRam_wen),
+    .size(4),
+    .addr(ME_dram_waddr),
+    .data(ME_dram_wdata),
+    .cache_call_begin(ME_ctl_dataRam_en),
+    
+    // output (face to CPU)
+    .cache_return_ready(ME_data_cache_return_ready),
+    .cache_return_rdata(ME_dataram_rdata),
+
+    // output data (face to interface)
+    .data_interface_enable(ME_data_interface_enable),
+    .write_enable(ME_write_enable),
+    .read_size(ME_read_size),
+    .write_size(ME_write_size),
+    .data_interface_raddr(ME_data_interface_raddr),
+    .data_interface_waddr(ME_data_interface_waddr),
+    .data_interface_wdata(ME_data_interface_wdata),
+    .data_interface_call_begin(ME_data_interface_call_begin),
+
+    // input data (face to interface)
+    .data_interface_return_ready(ME_data_interface_return_ready),
+    .data_interface_rdata(ME_data_interface_rdata)
 );
 
+data_ram_interface data_ram_interface_0(
+    // global input
+    .clk(clk), .reset(reset), .enable(ME_data_interface_enable),
+
+    // input data (face to CACHE)
+    .write_enable(ME_write_enable),
+    .read_size(ME_read_size),
+    .write_size(ME_write_size),
+    .data_interface_raddr(ME_data_interface_raddr),
+    .data_interface_waddr(ME_data_interface_waddr),
+    .data_interface_wdata(ME_data_interface_wdata),
+    .data_interface_call_begin(ME_data_interface_call_begin),
+
+    // output data (face to CACHE)
+    .data_interface_return_ready(ME_data_interface_return_ready),
+    .data_interface_rdata(ME_data_interface_rdata),
+
+    // read address (face to AXI)
+    .ARID(D_ARID),
+    .ARADDR(D_ARADDR),
+    .ARLEN(D_ARLEN),
+    .ARSIZE(D_ARSIZE),
+    .ARBURST(D_ARBURST),
+    .ARLOCK(D_ARLOCK),
+    .ARCACHE(D_ARCACHE),
+    .ARPROT(D_ARPROT),
+    .ARVALID(D_ARVALID),
+    .ARREADY(ARREADY),
+
+    // read response (face to AXI)
+    .RID(RID),
+    .RDATA(RDATA),
+    .RRESP(RRESP),
+    .RLAST(RLAST),
+    .RVALID(RVALID),
+    .RREADY(D_RREADY),
+
+    // write address (face to AXI)
+    .AWID(AWID),
+    .AWADDR(AWADDR),
+    .AWLEN(AWLEN),
+    .AWSIZE(AWSIZE),
+    .AWBURST(AWBURST),
+    .AWLOCK(AWLOCK),
+    .AWCACHE(AWCACHE),
+    .AWPROT(AWPROT),
+    .AWVALID(AWVALID),
+    .AWREADY(AWREADY),
+
+    // write data (face to AXI)
+    .WID(WID),
+    .WDATA(WDATA),
+    .WSTRB(WSTRB),
+    .WLAST(WLAST),
+    .WVALID(WVALID),
+    .WREADY(WREADY),
+
+    // write response (face to AXI)
+    .BID(BID),
+    .BRESP(BRESP),
+    .BVALID(BVALID),
+    .BREADY(BREADY)
+);
+
+assign ARID = I_ARID | D_ARID;
+assign ARADDR = I_ARADDR | D_ARADDR;
+assign ARLEN = I_ARLEN | D_ARLEN;
+assign ARSIZE = I_ARSIZE | D_ARSIZE;
+assign ARBURST = I_ARBURST | D_ARBURST;
+assign ARLOCK = I_ARLOCK | D_ARLOCK;
+assign ARCACHE = I_ARCACHE | D_ARCACHE;
+assign ARPROT = I_ARPROT | D_ARPROT;
+assign ARVALID = I_ARVALID | D_ARVALID;
+assign RREADY = I_RREADY | D_RREADY;
+
+// data_RAM data_RAM_0(
+//     // in
+//     .clk(clk), .en(ME_ctl_dataRam_en), .we(ME_ctl_dataRam_wen),
+//     .data_address(ME_dram_waddr), .data(ME_dram_wdata),
+//     // out
+//     .res(ME_dataram_rdata)
+// );
 
 
 
+wire MEWB_pause, MEWB_save, MEWB_resume, test;
+reg MEWB_last_pause, MEWB_last_save, MEWB_last_resume;
+always @ (posedge clk) begin
+    if (reset) begin
+        MEWB_last_pause <= 1;
+        MEWB_last_save <= 1;
+        MEWB_last_resume <= 1;
+    end
+    else begin
+        MEWB_last_pause <= MEWB_pause;
+        MEWB_last_save <= MEWB_save;
+        MEWB_last_resume <= MEWB_resume;
+    end
+end
+assign MEWB_pause = (ME_ctl_dataRam_en) ? ME_ctl_dataRam_en : 1'b1;
+assign MEWB_save = (ME_ctl_dataRam_en | ~MEWB_last_save) ? ME_data_interface_return_ready : 1'b1;
+assign MEWB_resume = (ME_ctl_dataRam_en | ~MEWB_last_resume) ? ME_data_interface_return_ready : 1'b1;
+assign test = MEWB_pause & MEWB_save & MEWB_resume;
 
 WaitRegs MEM_WB_wait(
-    .clk(clk), .en(1), .rst(reset), .wait_stop(0),
+    .clk(clk), .reset(reset), .enable(1),
+    .delete(0),
+    .pause(MEWB_pause), .save(MEWB_save), .resume(MEWB_resume),
+    // .pause(1), .save(1), .resume(1),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),
     .i4(ME_ctl_low_wen), .o4(WB_ctl_low_wen),

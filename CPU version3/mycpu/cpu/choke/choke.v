@@ -9,13 +9,14 @@ module choke(
     input wire [4:0] used_addr,
     input wire [4:0] EX_addr,
     // output
-    output wire IFID_wait_stop,
-    output wire IDEXE_reset
+    output wire IFID_ready,
+    output wire IDEXE_delete
 );
 
+wire activate;
 assign activate = I_am_reading_reg & he_is_reading_ram & (used_addr == EX_addr) & |used_addr;
-assign IFID_wait_stop = activate;
-assign IDEXE_reset = activate;
+assign IFID_ready = ~activate;
+assign IDEXE_delete = activate;
 
 endmodule
 
@@ -28,13 +29,14 @@ module choke_jr(
     input wire [4:0] EX_addr,
     input wire [4:0] ME_addr,
     // output
-    output wire IFID_wait_stop,
-    output wire IDEXE_reset
+    output wire IFID_ready,
+    output wire IDEXE_delete
 );
 
+wire activate;
 assign activate = I_am_reading & ((used_addr == EX_addr) | (used_addr == ME_addr)) & |used_addr;
-assign IFID_wait_stop = activate;
-assign IDEXE_reset = activate;
+assign IFID_ready = ~activate;
+assign IDEXE_delete = activate;
 
 endmodule
 
@@ -42,20 +44,16 @@ endmodule
 
 module choke_chosen(
     // input
-    input wire clk,
+    input wire chosen_return_ready,
     input wire chosen_choke,
     // output
-    output wire IFID_wait_stop,
-    output wire IDEXE_reset
+    output wire IFID_ready,
+    output wire IDEXE_delete
 );
 
-reg k;
-
-always @ (posedge clk) begin
-    k <= IFID_wait_stop;
-end
-
-assign IFID_wait_stop = chosen_choke & (k ^ chosen_choke);
-assign IDEXE_reset = chosen_choke & (k ^ chosen_choke);
+wire activate;
+assign activate = chosen_choke & chosen_return_ready;
+assign IFID_ready = ~activate;
+assign IDEXE_delete = activate;
 
 endmodule
