@@ -87,8 +87,14 @@ always @ (posedge clk) begin
         if (cache_call_begin && flag == 4'h0 && ~judge_name) begin
             flag <= 4'h2;
             inst_interface_call_begin <= 1'b1;
-            inst_interface_addr <= pc;
-            temp_pc_reg <= pc;
+            if (pc >= 32'ha000_0000 && pc <= 32'hbfff_ffff) begin
+                inst_interface_addr <= pc - 32'ha000_0000;
+                temp_pc_reg <= pc - 32'ha000_0000;
+            end
+            if (pc >= 32'h8000_0000 && pc <= 32'h9fff_ffff) begin
+                inst_interface_addr <= pc - 32'h8000_0000;
+                temp_pc_reg <= pc - 32'h8000_0000;
+            end
         end
 
         if (flag == 4'h2 && ~inst_interface_return_ready) begin
@@ -175,7 +181,11 @@ always @ (posedge clk) begin
             flag <= 1;
             data_interface_enable <= 1;
             read_size <= size;
-            data_interface_raddr <= addr;
+            if (addr >= 32'h8000_0000 && addr <= 32'h9fff_ffff)
+                data_interface_raddr <= addr - 32'h8000_0000;
+            if (addr >= 32'ha000_0000 && addr <= 32'hbfff_ffff)
+                data_interface_raddr <= addr - 32'ha000_0000;
+            // data_interface_raddr <= {addr[31:14], addr[13:6], 6'b0};
             data_interface_call_begin <= 1;
         end
 
@@ -184,7 +194,11 @@ always @ (posedge clk) begin
             data_interface_enable <= 1;
             write_enable <= 1;
             write_size <= size;
-            data_interface_waddr <= addr;
+            if (addr >= 32'h8000_0000 && addr <= 32'h9fff_ffff)
+                data_interface_waddr <= addr - 32'h8000_0000;
+            if (addr >= 32'ha000_0000 && addr <= 32'hbfff_ffff)
+                data_interface_waddr <= addr - 32'ha000_0000;
+            // data_interface_waddr <= {addr[31:14], addr[13:6], 6'b0};
             data_interface_wdata <= data;
             data_interface_call_begin <= 1;
         end

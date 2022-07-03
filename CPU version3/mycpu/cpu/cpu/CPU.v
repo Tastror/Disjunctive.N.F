@@ -150,8 +150,9 @@ wire I_RREADY, D_RREADY;
 
 // IF
 wire [31:0] IF_pc;
+wire [31:0] IF_pc_after_mmu;
 wire [31:0] IF_pc_plus_4;
-wire [31:0] IF_instruction;
+wire [31:0] IF_cache_instruction, IF_instruction;
 wire IF_pc_instruction_ready;
 wire IF_cache_call_begin;
 wire IF_cache_return_ready;
@@ -205,6 +206,20 @@ wire IDEXE_delete_rs, IDEXE_delete_rt, IDEXE_delete_jr, IDEXE_delete_chosen;
 wire IDEXE_delete_all;
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
 
+// cp0 of ID
+wire [18:0] ID_VPN2;
+wire [7:0] ID_ASID;
+wire [19:0] ID_PFN0;
+wire [19:0] ID_PFN1;
+wire [2:0] ID_C0;
+wire [2:0] ID_C1;
+wire ID_D0;
+wire ID_D1;
+wire ID_V0;
+wire ID_V1;
+wire ID_G0;
+wire ID_G1;
+wire [30:0] ID_Index;
 
 
 // EX
@@ -262,6 +277,7 @@ wire ME_alu_zero;
 wire ME_ctl_dataRam_en;
 wire ME_ctl_dataRam_wen;
 wire [31:0] ME_dram_waddr;
+wire [31:0] ME_dram_waddr_after_mmu;
 wire [31:0] ME_dram_wdata;
 wire [31:0] ME_dataram_rdata;
 wire ME_data_cache_return_ready;
@@ -283,6 +299,7 @@ wire ME_ctl_high_wen;
 wire [1:0] ME_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [4:0] ME_reg_waddr;
 wire [31:0] ME_low_wdata, ME_high_wdata;
+wire ME_mem_return_ready;
 
 
 
@@ -326,6 +343,44 @@ end
 
 
 
+
+// /***** mmu top *****/
+// mmu_top mmu_top_0(/*autoport*/
+//     // input
+//     .rst_n(ARESTn), .clk(clk),
+//     .data_address_i(ME_dram_waddr),
+//     .inst_address_i(IF_pc),
+//     .data_en(ME_ctl_dataRam_wen),
+//     .inst_en(1),
+//     .inst_mmu_begin(),
+//     .data_mmu_begin(),
+//     .user_mode(0),
+//     .tlb_config(0),
+//     .tlbwi(0),
+//     .tlbp(0),
+//     .asid(ID_ASID),
+//     .cp0_kseg0_uncached(0),
+//     // output
+//     .data_address_o(ME_dram_waddr_after_mmu),
+//     .inst_address_o(IF_pc_after_mmu),
+//     .inst_mmu_end(),
+//     .data_mmu_end()
+//     // ,
+//     // .data_uncached(),
+//     // .inst_uncached(),
+//     // .data_exp_miss(),
+//     // .inst_exp_miss(),
+//     // .data_exp_illegal(),
+//     // .inst_exp_illegal(),
+//     // .data_exp_dirty(),
+//     // .data_exp_invalid(),
+//     // .inst_exp_invalid(),
+//     // .tlbp_result()
+// );
+
+
+
+
 /***** Welcome to IF *****/
 
 pc_if_reg pc_if_reg_0(
@@ -339,10 +394,14 @@ pc_if_reg pc_if_reg_0(
     // output
     .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4),
     .pc_instruction_ready(IF_pc_instruction_ready),
+    .return_instruction(IF_instruction),
     // output (face to cache)
     .cache_call_begin(IF_cache_call_begin),
     // input (face to cache)
-    .cache_return_ready(IF_cache_return_ready & test)
+    .cache_return_ready(IF_cache_return_ready),
+    .cache_return_instruction(IF_cache_instruction),
+    // input (face to mem)
+    .mem_return_ready(ME_mem_return_ready)
 );
 
 inst_cache inst_cache_0(
@@ -350,10 +409,11 @@ inst_cache inst_cache_0(
     .clk(clk), .reset(reset), .enable(1),
     // input (face to CPU)
     .cache_call_begin(IF_cache_call_begin),
+    // .pc(IF_pc_after_mmu),
     .pc(IF_pc),
     // output (face to CPU)
     .cache_return_ready(IF_cache_return_ready),
-    .cache_return_instruction(IF_instruction),
+    .cache_return_instruction(IF_cache_instruction),
     // output (face to interface)
     .inst_interface_call_begin(IF_inst_interface_call_begin),
     .inst_interface_addr(IF_inst_interface_addr),
@@ -390,9 +450,10 @@ inst_ram_interface inst_ram_interface_0(
 WaitRegs IF_ID_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(0),
-    .pause(IF_pc_instruction_ready),
-    .save(IF_pc_instruction_ready),
-    .resume(IFID_ready_all & IF_pc_instruction_ready),
+    .begin_save(IF_pc_instruction_ready),
+    .addi_save(0),
+    .end_save(IFID_ready_all & IF_pc_instruction_ready),
+    .ready_go(1),
     // in-out pair
     .i321(IF_instruction), .o321(ID_instruction),
     .i322(IF_pc_plus_4), .o322(ID_pc_plus_4),
@@ -446,6 +507,30 @@ low_high_reg low_high_reg_0(
     .low_wdata(WB_low_wdata), .high_wdata(WB_high_wdata),
     //output
     .low_rdata(ID_low_rdata), .high_rdata(ID_high_rdata)
+);
+
+cp0 cp0_reg_0(
+    //input
+    .clk(clk), .rst(reset),
+    .enable(1), .wen(4'h0),
+    .EntryHi_wdata(32'h0),
+    .EntryLo0_wdata(32'h0),
+    .EntryLo1_wdata(32'h0),
+    .IndexReg_wdata(32'h0),
+    //output
+    .VPN2(VPN2),
+    .ASID(ASID),
+    .PFN0(PFN0),
+    .PFN1(PFN1),
+    .C0(C0),
+    .C1(C1),
+    .D0(D0),
+    .D1(D1),
+    .V0(V0),
+    .V1(V1),
+    .G0(G0),
+    .G1(G1),
+    .Index(Index)
 );
 
 choke choke_rs(
@@ -502,7 +587,10 @@ assign ID_may_choke_rs_data =
 WaitRegs ID_EXE_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(IDEXE_delete_all),
-    .pause(1), .save(1), .resume(1),
+    .begin_save(1),
+    .addi_save(0),
+    .end_save(1),
+    .ready_go(1),
     // in-out pair
     .i1(ID_ctl_dataRam_en), .o1(EX_ctl_dataRam_en),
     .i2(ID_ctl_dataRam_wen), .o2(EX_ctl_dataRam_wen),
@@ -617,7 +705,10 @@ assign EX_ctl_pc_first_mux = (EX_alu_res[0]) & EX_ctl_pc_first_mux_old;
 WaitRegs EXE_MEM_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(0),
-    .pause(1), .save(1), .resume(1),
+    .begin_save(1),
+    .addi_save(0),
+    .end_save(1),
+    .ready_go(1),
     // in-out pair
     .i1(EX_ctl_dataRam_en), .o1(ME_ctl_dataRam_en),
     .i2(EX_ctl_dataRam_wen), .o2(ME_ctl_dataRam_wen),
@@ -657,6 +748,7 @@ data_cache data_cache_0(
     .wen(ME_ctl_dataRam_wen),
     .size(4),
     .addr(ME_dram_waddr),
+    // .addr(ME_dram_waddr_after_mmu),
     .data(ME_dram_wdata),
     .cache_call_begin(ME_ctl_dataRam_en),
     
@@ -762,43 +854,44 @@ assign RREADY = I_RREADY | D_RREADY;
 //     .res(ME_dataram_rdata)
 // );
 
-
-
-wire MEWB_pause, MEWB_save, MEWB_resume, test;
-reg MEWB_last_pause, MEWB_last_save, MEWB_last_resume;
+wire MEWB_begin_save, MEWB_save, MEWB_ready_go;
+reg MEWB_last_begin_save, MEWB_last_save, MEWB_last_ready_go;
 always @ (posedge clk) begin
     if (reset) begin
-        MEWB_last_pause <= 1;
+        MEWB_last_begin_save <= 1;
         MEWB_last_save <= 1;
-        MEWB_last_resume <= 1;
+        MEWB_last_ready_go <= 1;
     end
     else begin
-        MEWB_last_pause <= MEWB_pause;
+        MEWB_last_begin_save <= MEWB_begin_save;
         MEWB_last_save <= MEWB_save;
-        MEWB_last_resume <= MEWB_resume;
+        MEWB_last_ready_go <= MEWB_ready_go;
     end
 end
-assign MEWB_pause = (ME_ctl_dataRam_en) ? ME_ctl_dataRam_en : 1'b1;
+assign MEWB_begin_save = (ME_ctl_dataRam_en) ? ME_ctl_dataRam_en : 1'b1;
 assign MEWB_save = (ME_ctl_dataRam_en | ~MEWB_last_save) ? ME_data_interface_return_ready : 1'b1;
-assign MEWB_resume = (ME_ctl_dataRam_en | ~MEWB_last_resume) ? ME_data_interface_return_ready : 1'b1;
-assign test = MEWB_pause & MEWB_save & MEWB_resume;
+assign MEWB_ready_go = (ME_ctl_dataRam_en | ~MEWB_last_ready_go) ? ME_data_interface_return_ready : 1'b1;
+assign ME_mem_return_ready = MEWB_begin_save & MEWB_save & MEWB_ready_go;
 
 WaitRegs MEM_WB_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(0),
-    .pause(MEWB_pause), .save(MEWB_save), .resume(MEWB_resume),
-    // .pause(1), .save(1), .resume(1),
+    .begin_save(MEWB_begin_save),
+    .addi_save(MEWB_save),
+    .end_save(MEWB_ready_go),
+    .ready_go(1),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),
     .i4(ME_ctl_low_wen), .o4(WB_ctl_low_wen),
     .i5(ME_ctl_high_wen), .o5(WB_ctl_high_wen),
     .i61(ME_ctl_rfWriteData_mux), .o61(WB_ctl_rfWriteData_mux),
     .i81(ME_reg_waddr), .o81(WB_reg_waddr),
-    .i322(ME_dataram_rdata), .o322(WB_dataram_rdata),
     .i323(ME_alures_merge), .o323(WB_alures_merge),
     .i324(ME_low_wdata), .o324(WB_low_wdata),
     .i325(ME_high_wdata), .o325(WB_high_wdata),
-    .i326(ME_pc), .o326(WB_pc)
+    .i326(ME_pc), .o326(WB_pc),
+    // in-out pair: addi_save
+    .ai321(ME_dataram_rdata), .ao321(WB_dataram_rdata)
 );
 
 

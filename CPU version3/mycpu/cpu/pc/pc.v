@@ -21,12 +21,17 @@ module pc_if_reg(
     output wire [31:0] IF_pc_out,
     output wire [31:0] IF_pc_plus_4,
     output wire pc_instruction_ready,
+    output wire [31:0] return_instruction,
 
     // output (face to cache)
     output reg cache_call_begin,
 
     // input (face to cache)
-    input wire cache_return_ready
+    input wire cache_return_ready,
+    input wire [31:0] cache_return_instruction,
+
+    // input (face to mem)
+    input wire mem_return_ready
 );
 
 parameter PC_INITIAL = 32'hbfc00000;
@@ -34,12 +39,14 @@ parameter PC_BREAK = 32'hbfc00380;
 
 reg [31:0] pc_next;
 reg [31:0] pc;
-reg [3:0] flag1;
-reg [3:0] flag2;
+reg [3:0] flag1, flag2;
+reg flag3;
+reg [31:0] buff_instruction;
 
 assign IF_pc_out = pc;
 assign IF_pc_plus_4 = pc + 32'h4;
-assign pc_instruction_ready = cache_return_ready;
+assign pc_instruction_ready = (cache_return_ready | flag3) & mem_return_ready;
+assign return_instruction = cache_return_instruction | buff_instruction;
 
 always @ (posedge clk) begin
 
@@ -48,6 +55,7 @@ always @ (posedge clk) begin
         pc <= 32'h0;
         flag1 <= 4'h0;
         flag2 <= 4'h0;
+        buff_instruction <= 4'h0;
         cache_call_begin <= 1'b0;
     end
 
@@ -61,6 +69,7 @@ always @ (posedge clk) begin
         if (flag1 == 4'h0 && pc_call_begin) begin
             flag1 <= 4'h5;
             flag2 <= 4'h5;
+            flag3 <= 0;
             pc <= pc_next;
             cache_call_begin <= 1'b1;
         end
@@ -68,6 +77,7 @@ always @ (posedge clk) begin
         // not after reset
         if (flag1 == 4'h4 && flag2 == 4'h4 && pc_call_begin) begin
             flag1 <= 4'h5;
+            flag3 <= 0;
             cache_call_begin <= 1'b1;
         end
 
@@ -75,11 +85,26 @@ always @ (posedge clk) begin
             cache_call_begin <= 1'b0;
         end
 
-        if (flag1 == 4'h5 && cache_return_ready) begin
+        if (flag1 == 4'h5 && cache_return_ready && mem_return_ready) begin
             pc <= pc_next;
             flag1 <= 4'h4;
             flag2 <= 4'h5;
         end
+
+        if (flag1 == 4'h5 && cache_return_ready && ~mem_return_ready) begin
+            flag1 <= 4'h6;
+            flag3 <= 1;
+            buff_instruction <= cache_return_instruction;
+        end
+
+        if (flag1 == 4'h6 && mem_return_ready) begin
+            pc <= pc_next;
+            flag1 <= 4'h4;
+            flag2 <= 4'h5;
+            flag3 <= 0;
+            buff_instruction <= 0;
+        end
+
 
         if (flag2 == 4'h5 && pc_next_update_begin) begin
             flag2 <= 4'h4;

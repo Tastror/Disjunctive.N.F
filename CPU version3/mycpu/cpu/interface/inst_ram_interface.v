@@ -41,8 +41,8 @@ reg [31:0] flag;
 // 1 (== h301) is reading first time
 // h301 and ARREADY is not 1 (shake failed)
 // h201 (== h302) and ARREADY is 1 (shake success). send address success
-// h302 after shake and RVALID is not 1 (received failed)
-// h202 (== reset) after shake and RVALID is 1 (received success). receiving read data success
+// h302 after shake and RVALID is not 1 (begin_saved failed)
+// h202 (== reset) after shake and RVALID is 1 (begin_saved success). receiving read data success
 
 always @(posedge clk) begin
 

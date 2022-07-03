@@ -114,16 +114,16 @@ always @(posedge clk) begin
         // 1 (== h301) is reading first time
         // h301 and ARREADY is not 1 (shake failed)
         // h201 (== h302) and ARREADY is 1 (shake success). send address success
-        // h302 after shake and RVALID is not 1 (received failed)
-        // h202 (== reset) after shake and RVALID is 1 (received success). receiving read data success
+        // h302 after shake and RVALID is not 1 (begin_saved failed)
+        // h202 (== reset) after shake and RVALID is 1 (begin_saved success). receiving read data success
 
         // 3 (== h303) is send writing address first time
         // h303 and AWREADY is 1 (shake failed)
         // h203 (== h304) and AWREADY is not 1 (shake success). send writing address success
         // h304 and WREADY is not 1 (shake failed)
         // h204 (== h305) and WREADY is 1 (shake success). send writing data success
-        // h305 after shake and BVALID is not 1 (received failed)
-        // h205 (== reset) after shake and BVALID is 1 (received success). all end
+        // h305 after shake and BVALID is not 1 (begin_saved failed)
+        // h205 (== reset) after shake and BVALID is 1 (begin_saved success). all end
     end
 
     else if (~enable) begin
@@ -215,29 +215,29 @@ always @(posedge clk) begin
             WSTRB <= 4'h0;
             WLAST <= 1'h0;
             WVALID <= 1'h0;
-            data_interface_return_ready <= 1'b1;
+            // data_interface_return_ready <= 1'b1;
         end
 
         if (flag == 32'h204) begin
             flag <= 32'h0;
-            data_interface_return_ready <= 1'b0;
+            // data_interface_return_ready <= 1'b0;
         end
 
-        // if ((flag == 32'h204 || flag == 32'h305) && ~BVALID) begin
-        //     flag <= 32'h305;
-        // end
+        if ((flag == 32'h204 || flag == 32'h305) && ~BVALID) begin
+            flag <= 32'h305;
+        end
 
-        // if ((flag == 32'h204 || flag == 32'h305) && BVALID) begin
-        //     flag <= 32'h205;
-        //     data_interface_return_ready <= 1'b1;
-        //     BREADY <= 1;
-        // end
+        if ((flag == 32'h204 || flag == 32'h305) && BVALID) begin
+            flag <= 32'h205;
+            data_interface_return_ready <= 1'b1;
+            BREADY <= 1;
+        end
 
-        // if (flag == 32'h205) begin
-        //     flag <= 32'h0;
-        //     data_interface_return_ready <= 1'b0;
-        //     BREADY <= 0;
-        // end
+        if (flag == 32'h205) begin
+            flag <= 32'h0;
+            data_interface_return_ready <= 1'b0;
+            BREADY <= 0;
+        end
 
     end
     
