@@ -200,6 +200,7 @@ wire [1:0] ID_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [2:0] ID_ctl_rfWriteAddr_mux; // MUX3_5b, [rd, rt, 31]
 wire [1:0] ID_ctl_low_mux;  // MUX2_32b, [alu_res, rs_data]
 wire [1:0] ID_ctl_high_mux;  // MUX2_32b, [alu_res_high, rs_data]
+wire ID_ctl_imm_zero_extend;
 wire IFID_ready_rs, IFID_ready_rt, IFID_ready_jr, IFID_ready_chosen;
 wire IFID_ready_all;
 wire IDEXE_delete_rs, IDEXE_delete_rt, IDEXE_delete_jr, IDEXE_delete_chosen;
@@ -474,7 +475,11 @@ id_data id_data_0(
     .sa(ID_sa), .imm(ID_imm), .instIndex(ID_index), .code(ID_code), .sel(ID_sel)
 );
 
-assign ID_imm_32 = {{16{ID_imm[15]}}, ID_imm};  // signed
+wire [15:0] ID_imm_real_pre;
+assign ID_imm_real_pre =
+    {16{ID_ctl_imm_zero_extend}} & 16'h0 |
+    ~{16{ID_ctl_imm_zero_extend}} & {16{ID_imm[15]}};
+assign ID_imm_32 = {ID_imm_real_pre, ID_imm};  // signed or unsigend
 assign ID_sa_32 = {{27{1'b0}}, ID_sa};  // no sign
 
 id_control id_control_0(
@@ -488,6 +493,7 @@ id_control id_control_0(
     .ctl_dataRam_en(ID_ctl_dataRam_en), .ctl_dataRam_wen(ID_ctl_dataRam_wen),
     .ctl_rfWriteData_mux(ID_ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ID_ctl_rfWriteAddr_mux), .ctl_rf_wen(ID_ctl_rf_wen),
     .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux),
+    .ctl_imm_zero_extend(ID_ctl_imm_zero_extend),
     .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke)
 );
 
@@ -738,6 +744,7 @@ WaitRegs EXE_MEM_wait(
 /***** Welcome to MEM *****/
 
 assign ME_dram_waddr = ME_alu_res;
+assign ME_dataram_raddr = ME_alu_res;
 assign ME_dram_wdata = ME_rt_data;
 
 data_cache data_cache_0(

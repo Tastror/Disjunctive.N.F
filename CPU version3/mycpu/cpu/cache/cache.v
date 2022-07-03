@@ -161,10 +161,11 @@ module data_cache(
 assign cache_return_rdata = data_interface_rdata;
 assign cache_return_ready = data_interface_return_ready;
 
-reg [3:0] flag;
+reg [3:0] flag, test;
 
 always @ (posedge clk) begin
     if (reset) begin
+        test <= 0;
         flag <= 0;
         data_interface_enable <= 0;
         write_enable <= 0;
@@ -181,15 +182,22 @@ always @ (posedge clk) begin
             flag <= 1;
             data_interface_enable <= 1;
             read_size <= size;
-            if (addr >= 32'h8000_0000 && addr <= 32'h9fff_ffff)
+            if (addr >= 32'h8000_0000 && addr <= 32'h9fff_ffff) begin
                 data_interface_raddr <= addr - 32'h8000_0000;
-            if (addr >= 32'ha000_0000 && addr <= 32'hbfff_ffff)
+                test <= 1;
+            end
+            else if (addr >= 32'ha000_0000 && addr <= 32'hbfff_ffff) begin
                 data_interface_raddr <= addr - 32'ha000_0000;
+                test <= 2;
+            end
+            else begin
+                test <= 3;
+            end
             // data_interface_raddr <= {addr[31:14], addr[13:6], 6'b0};
             data_interface_call_begin <= 1;
         end
 
-        if (flag == 0 && enable & wen) begin
+        if (flag == 0 && enable && wen) begin
             flag <= 1;
             data_interface_enable <= 1;
             write_enable <= 1;

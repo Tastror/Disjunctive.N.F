@@ -30,6 +30,8 @@ module id_control(
     output wire ctl_high_wen,
     output wire [1:0] ctl_low_mux,  // [alu_res, rs_data]
     output wire [1:0] ctl_high_mux,  // [alu_res_high, rs_data]
+    
+    output wire ctl_imm_zero_extend,
 
     output wire ctl_jr_choke,
     output wire ctl_chosen_choke
@@ -298,6 +300,11 @@ assign ctl_high_mux[0] =
 ;
 assign ctl_high_mux[1] =
     MTHI
+;
+
+
+assign ctl_imm_zero_extend =
+    ANDI | ORI | XORI
 ;
 
 
