@@ -151,14 +151,14 @@ assign ctl_aluSrc1_mux[1] =
 assign ctl_aluSrc2_mux[0] =
     ADD | ADDU | SUB | SUBU | SLT | SLTU | DIV | DIVU | MUL | MULT |
     MULTU | AND | NOR | OR | XOR | SLL | SRL | SRA | SLLV | SRLV | SRAV |
-    BEQ | BNE | BGEZ
+    BEQ | BNE
 ;
 assign ctl_aluSrc2_mux[1] =
     ADDI | ADDIU | SLTI | SLTIU | ANDI | ORI | XORI | LB | LBU | LH | LHU |
     LW | SB | SH | SW | LUI
 ;
 assign ctl_aluSrc2_mux[2] =
-    BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL
+    BLTZ | BGTZ | BLEZ | BGEZ | BGEZAL | BLTZAL
 ;
 
 
