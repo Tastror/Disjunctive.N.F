@@ -301,6 +301,7 @@ wire [1:0] ME_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [4:0] ME_reg_waddr;
 wire [31:0] ME_low_wdata, ME_high_wdata;
 wire ME_mem_return_ready;
+wire ME_mem_lw_return_ready;
 
 
 
@@ -402,7 +403,9 @@ pc_if_reg pc_if_reg_0(
     .cache_return_ready(IF_cache_return_ready),
     .cache_return_instruction(IF_cache_instruction),
     // input (face to mem)
-    .mem_return_ready(ME_mem_return_ready)
+    .mem_return_ready(ME_mem_return_ready),
+    .ex_lw_may_choke(~EX_ctl_dataRam_wen & EX_ctl_dataRam_en),
+    .mem_lw_return_ready(ME_mem_lw_return_ready)
 );
 
 inst_cache inst_cache_0(
@@ -861,8 +864,9 @@ assign RREADY = I_RREADY | D_RREADY;
 //     .res(ME_dataram_rdata)
 // );
 
-wire MEWB_begin_save, MEWB_save, MEWB_ready_go;
+wire MEWB_begin_save, MEWB_save, MEWB_ready_go, MEWB_lw;
 reg MEWB_last_begin_save, MEWB_last_save, MEWB_last_ready_go;
+
 always @ (posedge clk) begin
     if (reset) begin
         MEWB_last_begin_save <= 1;
@@ -875,17 +879,19 @@ always @ (posedge clk) begin
         MEWB_last_ready_go <= MEWB_ready_go;
     end
 end
-assign MEWB_begin_save = (ME_ctl_dataRam_en) ? ME_ctl_dataRam_en : 1'b1;
+assign MEWB_lw = ME_data_interface_enable & ~ME_write_enable;
+assign MEWB_begin_save = 1'b1;
 assign MEWB_save = (ME_ctl_dataRam_en | ~MEWB_last_save) ? ME_data_interface_return_ready : 1'b1;
 assign MEWB_ready_go = (ME_ctl_dataRam_en | ~MEWB_last_ready_go) ? ME_data_interface_return_ready : 1'b1;
 assign ME_mem_return_ready = MEWB_begin_save & MEWB_save & MEWB_ready_go;
+assign ME_mem_lw_return_ready = ME_mem_return_ready & MEWB_lw;
 
 WaitRegs MEM_WB_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(0),
-    .begin_save(MEWB_begin_save),
-    .addi_save(MEWB_save),
-    .end_save(MEWB_ready_go),
+    .begin_save(MEWB_last_save),
+    .addi_save(MEWB_lw ? ME_mem_lw_return_ready : MEWB_save),
+    .end_save(MEWB_lw ? ME_mem_lw_return_ready : MEWB_ready_go),
     .ready_go(1),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),

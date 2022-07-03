@@ -31,7 +31,9 @@ module pc_if_reg(
     input wire [31:0] cache_return_instruction,
 
     // input (face to mem)
-    input wire mem_return_ready
+    input wire mem_return_ready,
+    input wire ex_lw_may_choke,
+    input wire mem_lw_return_ready
 );
 
 parameter PC_INITIAL = 32'hbfc00000;
@@ -74,12 +76,24 @@ always @ (posedge clk) begin
             cache_call_begin <= 1'b1;
         end
 
-        // not after reset
-        if (flag1 == 4'h4 && flag2 == 4'h4 && pc_call_begin) begin
+        // not after reset and normal, sw
+        if (flag1 == 4'h4 && flag2 == 4'h4 && ~flag3 && pc_call_begin && ~ex_lw_may_choke) begin
             flag1 <= 4'h5;
-            flag3 <= 0;
             cache_call_begin <= 1'b1;
         end
+
+        // not after reset and lw
+        if (flag1 == 4'h4 && flag2 == 4'h4 && pc_call_begin && ex_lw_may_choke) begin
+            flag3 <= 1;
+        end
+
+        // lw begin
+        if (flag1 == 4'h4 && flag2 == 4'h4 && pc_call_begin && flag3 && mem_lw_return_ready) begin
+            flag3 <= 0;
+            flag1 <= 4'h5;
+            cache_call_begin <= 1'b1;
+        end
+            
 
         if (flag1 == 4'h5) begin
             cache_call_begin <= 1'b0;
@@ -93,7 +107,6 @@ always @ (posedge clk) begin
 
         if (flag1 == 4'h5 && cache_return_ready && ~mem_return_ready) begin
             flag1 <= 4'h6;
-            flag3 <= 1;
             buff_instruction <= cache_return_instruction;
         end
 
@@ -101,7 +114,6 @@ always @ (posedge clk) begin
             pc <= pc_next;
             flag1 <= 4'h4;
             flag2 <= 4'h5;
-            flag3 <= 0;
             buff_instruction <= 0;
         end
 
