@@ -42,12 +42,12 @@ parameter PC_BREAK = 32'hbfc00380;
 reg [31:0] pc_next;
 reg [31:0] pc;
 reg [3:0] flag1, flag2;
-reg flag3;
+reg flag3, ready_flag;
 reg [31:0] buff_instruction;
 
 assign IF_pc_out = pc;
 assign IF_pc_plus_4 = pc + 32'h4;
-assign pc_instruction_ready = (cache_return_ready | flag3) & mem_return_ready;
+assign pc_instruction_ready = (cache_return_ready | ready_flag) & mem_return_ready;
 assign return_instruction = cache_return_instruction | buff_instruction;
 
 always @ (posedge clk) begin
@@ -57,6 +57,7 @@ always @ (posedge clk) begin
         pc <= 32'h0;
         flag1 <= 4'h0;
         flag2 <= 4'h0;
+        ready_flag <= 4'h0;
         buff_instruction <= 4'h0;
         cache_call_begin <= 1'b0;
     end
@@ -107,6 +108,7 @@ always @ (posedge clk) begin
 
         if (flag1 == 4'h5 && cache_return_ready && ~mem_return_ready) begin
             flag1 <= 4'h6;
+            ready_flag <= 4'h1;
             buff_instruction <= cache_return_instruction;
         end
 
@@ -114,6 +116,7 @@ always @ (posedge clk) begin
             pc <= pc_next;
             flag1 <= 4'h4;
             flag2 <= 4'h5;
+            ready_flag <= 4'h0;
             buff_instruction <= 0;
         end
 
