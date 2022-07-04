@@ -155,6 +155,7 @@ wire [31:0] IF_pc_plus_4;
 wire [31:0] IF_cache_instruction, IF_instruction;
 wire IF_pc_instruction_ready;
 wire IF_cache_call_begin;
+wire IF_dont_use_next;
 wire IF_cache_return_ready;
 wire IF_inst_interface_call_begin;
 wire IF_inst_interface_return_ready;
@@ -182,7 +183,7 @@ wire [15:0] ID_code;
 wire [2:0] ID_sel;
     // things that will transport to next place
 wire ID_ctl_pc_first_mux;
-wire [3:0] ID_ctl_pc_second_mux; // MUX4_32b, [first, index, rs_data, break]
+wire [4:0] ID_ctl_pc_second_mux; // MUX5_32b, [first, index, rs_data, break, recover]
 wire [31:0] ID_reg_rdata_rs, ID_reg_rdata_rt;
 wire [31:0] ID_may_choke_rs_data;
 wire [31:0] ID_high_rdata, ID_low_rdata;
@@ -190,7 +191,7 @@ wire [1:0] ID_ctl_rfAluSrc1_mux; // MUX2_32b, [rs_data, sa]
 wire [2:0] ID_ctl_rfAluSrc2_mux; // MUX3_32b, [rt_data, imm_32, 0]
 wire [13:0] ID_ctl_alu_mux;
 wire ID_ctl_alu_op2;
-wire [3:0] ID_ctl_alures_merge_mux; // MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+wire [4:0] ID_ctl_alures_merge_mux; // MUX5_32b, [alu_res, PC+8, HI_rdata, LO_rdata, CP0_data]
 wire ID_ctl_dataRam_en;
 wire ID_ctl_dataRam_wen;
 wire ID_ctl_rf_wen;
@@ -208,6 +209,9 @@ wire IDEXE_delete_all;
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
 wire [2:0] ID_ctl_data_size;
 wire ID_ctl_data_zero_extend;
+wire ID_ctl_eret, ID_ctl_cp0_read, ID_ctl_cp0_write;
+wire ID_ctl_exception;
+wire [4:0] ID_ctl_cp0_exception_code;
 
 // cp0 of ID
 wire [18:0] ID_VPN2;
@@ -233,6 +237,7 @@ wire [31:0] EX_pc_plus_8;
 wire [31:0] EX_pc_plus_4_plus_4imm;
     // self used things
 wire [25:0] EX_index;
+wire [2:0] EX_sel;
 wire [31:0] EX_imm_32, EX_sa_32;
 wire [4:0] EX_rs, EX_rt, EX_rd, EX_sa;
 wire [31:0] EX_rs_data_old, EX_rt_data_old;
@@ -247,7 +252,7 @@ wire [13:0] EX_ctl_alu_mux;
 wire EX_ctl_alu_op2;
 wire [31:0] EX_alu_res, EX_alu_res_high;
 wire EX_alu_zero;
-wire [3:0] EX_ctl_alures_merge_mux; // MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+wire [4:0] EX_ctl_alures_merge_mux; // MUX5_32b, [alu_res, PC+8, HI_rdata, LO_rdata, CP0_data]
 wire [31:0] EX_alures_merge;
 wire [2:0] EX_ctl_rfWriteAddr_mux; // MUX3_5b, [rd, rt, 31]
 wire [4:0] EX_reg_waddr;
@@ -266,6 +271,14 @@ wire EX_ctl_high_wen;
 wire [1:0] EX_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [2:0] EX_ctl_data_size;
 wire EX_ctl_data_zero_extend;
+wire EX_ctl_eret;
+wire EX_ctl_cp0_read;
+wire EX_ctl_cp0_write;
+wire EX_ctl_exception;
+wire [31:0] EX_CP0_rdata;
+wire EX_T1;
+wire [31:0] EX_recover_pc;
+wire [4:0] EX_ctl_cp0_exception_code;
 
 
 
@@ -399,12 +412,14 @@ pc_if_reg pc_if_reg_0(
     .pc_next_update_begin(IFID_ready_chosen),
     .EX_ctl_pc_first_mux(EX_ctl_pc_first_mux), .ID_ctl_pc_second_mux(ID_ctl_pc_second_mux),
     .EX_pc_plus_4_plus_4imm(EX_pc_plus_4_plus_4imm), .ID_index(ID_index), .ID_may_choke_rs_data(ID_may_choke_rs_data),
+    .pc_recover(EX_recover_pc),
     // output
     .IF_pc_out(IF_pc), .IF_pc_plus_4(IF_pc_plus_4),
     .pc_instruction_ready(IF_pc_instruction_ready),
     .return_instruction(IF_instruction),
     // output (face to cache)
     .cache_call_begin(IF_cache_call_begin),
+    .dont_use_next(IF_dont_use_next),
     // input (face to cache)
     .cache_return_ready(IF_cache_return_ready),
     .cache_return_instruction(IF_cache_instruction),
@@ -419,6 +434,7 @@ inst_cache inst_cache_0(
     .clk(clk), .reset(reset), .enable(1),
     // input (face to CPU)
     .cache_call_begin(IF_cache_call_begin),
+    .dont_use_next(IF_dont_use_next),
     // .pc(IF_pc_after_mmu),
     .pc(IF_pc),
     // output (face to CPU)
@@ -504,7 +520,10 @@ id_control id_control_0(
     .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux),
     .ctl_imm_zero_extend(ID_ctl_imm_zero_extend),
     .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke),
-    .ctl_data_size(ID_ctl_data_size), .ctl_data_zero_extend(ID_ctl_data_zero_extend)
+    .ctl_data_size(ID_ctl_data_size), .ctl_data_zero_extend(ID_ctl_data_zero_extend),
+    .ctl_eret(ID_ctl_eret), .ctl_cp0_read(ID_ctl_cp0_read), .ctl_cp0_write(ID_ctl_cp0_write),
+    .ctl_exception(ID_ctl_exception),
+    .ctl_cp0_exception_code(ID_ctl_cp0_exception_code)
 );
 
 regs regs_0(
@@ -523,30 +542,6 @@ low_high_reg low_high_reg_0(
     .low_wdata(WB_low_wdata), .high_wdata(WB_high_wdata),
     //output
     .low_rdata(ID_low_rdata), .high_rdata(ID_high_rdata)
-);
-
-cp0 cp0_reg_0(
-    //input
-    .clk(clk), .rst(reset),
-    .enable(1), .wen(4'h0),
-    .EntryHi_wdata(32'h0),
-    .EntryLo0_wdata(32'h0),
-    .EntryLo1_wdata(32'h0),
-    .IndexReg_wdata(32'h0),
-    //output
-    .VPN2(VPN2),
-    .ASID(ASID),
-    .PFN0(PFN0),
-    .PFN1(PFN1),
-    .C0(C0),
-    .C1(C1),
-    .D0(D0),
-    .D1(D1),
-    .V0(V0),
-    .V1(V1),
-    .G0(G0),
-    .G1(G1),
-    .Index(Index)
 );
 
 choke choke_rs(
@@ -637,7 +632,9 @@ WaitRegs ID_EXE_wait(
     .i327(ID_index), .o327(EX_index),
     .i328(ID_low_rdata), .o328(EX_low_rdata_old),
     .i329(ID_high_rdata), .o329(EX_high_rdata_old),
-    .i32a(ID_pc), .o32a(EX_pc)
+    .i32a(ID_pc), .o32a(EX_pc),
+    .i32b({ID_ctl_exception, ID_ctl_cp0_exception_code, ID_sel, ID_ctl_eret, ID_ctl_cp0_read, ID_ctl_cp0_write}),
+    .o32b({EX_ctl_exception, EX_ctl_cp0_exception_code, EX_sel, EX_ctl_eret, EX_ctl_cp0_read, EX_ctl_cp0_write})
 );
 
 
@@ -701,9 +698,6 @@ ALU ALU_0(
 
 assign EX_pc_plus_8 = EX_pc_plus_4 + 32'd4;
 
-MUX4_32b MUX4_32b_alures_merge(.oneHot(EX_ctl_alures_merge_mux),
-    .in0(EX_alu_res), .in1(EX_pc_plus_8), .in2(EX_high_rdata), .in3(EX_low_rdata), .out(EX_alures_merge) );
-
 // this is usually written in write-back, but considered the bypass, we lift it here
 MUX3_5b MUX3_5b_ex_waddr( .oneHot(EX_ctl_rfWriteAddr_mux),
     .in0(EX_rd), .in1(EX_rt), .in2(5'd31), .out(EX_reg_waddr) );
@@ -715,6 +709,47 @@ MUX2_32b MUX2_32b_high( .oneHot(EX_ctl_high_mux),
     .in0(EX_alu_res_high), .in1(EX_rs_data), .out(EX_high_wdata) );
 
 assign EX_ctl_pc_first_mux = (EX_alu_res[0]) & EX_ctl_pc_first_mux_old;
+
+cp0 cp0_reg_0(
+    // input
+    .clk(clk), .rst(reset), .enable(1),
+    // input (face to normal CPU)
+    .pc(EX_pc),
+    .eret(EX_ctl_eret),
+    .read(EX_ctl_cp0_read),
+    .write(EX_ctl_cp0_write),
+    .exception(EX_ctl_exception),
+    .sel(EX_sel),
+    .rd(EX_rd),
+    .rt_data(EX_rt_data),
+    .cp0_exception_code(EX_ctl_cp0_exception_code),
+    // input (face to TLB)
+    .wen(4'h0),
+    .EntryHi_wdata(32'h0),
+    .EntryLo0_wdata(32'h0),
+    .EntryLo1_wdata(32'h0),
+    .IndexReg_wdata(32'h0),
+    // output
+    .CP0_rdata(EX_CP0_rdata),
+    .T1(EX_T1),
+    .recover_pc(EX_recover_pc),
+    .VPN2(VPN2),
+    .ASID(ASID),
+    .PFN0(PFN0),
+    .PFN1(PFN1),
+    .C0(C0),
+    .C1(C1),
+    .D0(D0),
+    .D1(D1),
+    .V0(V0),
+    .V1(V1),
+    .G0(G0),
+    .G1(G1),
+    .Index(Index)
+);
+
+MUX5_32b MUX5_32b_alures_merge(.oneHot(EX_ctl_alures_merge_mux),
+    .in0(EX_alu_res), .in1(EX_pc_plus_8), .in2(EX_high_rdata), .in3(EX_low_rdata), .in4(EX_CP0_rdata), .out(EX_alures_merge) );
 
 
 

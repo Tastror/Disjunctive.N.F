@@ -12,10 +12,11 @@ module pc_if_reg(
     input wire pc_call_begin,
     input wire pc_next_update_begin,
     input wire EX_ctl_pc_first_mux,
-    input wire [3:0] ID_ctl_pc_second_mux,
+    input wire [4:0] ID_ctl_pc_second_mux,
     input wire [31:0] EX_pc_plus_4_plus_4imm,
     input wire [25:0] ID_index,
     input wire [31:0] ID_may_choke_rs_data,
+    input wire [31:0] pc_recover,
 
     // output
     output wire [31:0] IF_pc_out,
@@ -25,6 +26,7 @@ module pc_if_reg(
 
     // output (face to cache)
     output reg cache_call_begin,
+    output reg dont_use_next,
 
     // input (face to cache)
     input wire cache_return_ready,
@@ -60,6 +62,7 @@ always @ (posedge clk) begin
         ready_flag <= 4'h0;
         buff_instruction <= 4'h0;
         cache_call_begin <= 1'b0;
+        dont_use_next <= 1'b0;
     end
 
     else if (~enable) begin
@@ -98,6 +101,7 @@ always @ (posedge clk) begin
 
         if (flag1 == 4'h5) begin
             cache_call_begin <= 1'b0;
+            dont_use_next <= 1'b0;
         end
 
         if (flag1 == 4'h5 && cache_return_ready && mem_return_ready) begin
@@ -124,16 +128,22 @@ always @ (posedge clk) begin
         if (flag2 == 4'h5 && pc_next_update_begin) begin
             flag2 <= 4'h4;
             if (ID_ctl_pc_second_mux[1])
-                    pc_next = {{IF_pc_plus_4[31:28]}, {ID_index[25:0]}, {2'b00}};
+                    pc_next <= {{IF_pc_plus_4[31:28]}, {ID_index[25:0]}, {2'b00}};
                 else if (ID_ctl_pc_second_mux[2])
-                    pc_next = ID_may_choke_rs_data;
-                else if (ID_ctl_pc_second_mux[3])
-                    pc_next = PC_BREAK;
+                    pc_next <= ID_may_choke_rs_data;
+                else if (ID_ctl_pc_second_mux[3]) begin
+                    pc_next <= PC_BREAK;
+                    dont_use_next <= 1'b1;
+                end
+                else if (ID_ctl_pc_second_mux[4]) begin
+                    pc_next <= pc_recover;
+                    dont_use_next <= 1'b1;
+                end
                 else
                     if (EX_ctl_pc_first_mux)
-                        pc_next = EX_pc_plus_4_plus_4imm;
+                        pc_next <= EX_pc_plus_4_plus_4imm;
                     else
-                        pc_next = IF_pc_plus_4;
+                        pc_next <= IF_pc_plus_4;
         end
 
     end

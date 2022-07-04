@@ -10,6 +10,7 @@ module inst_cache(
 
     // input (face to CPU)
     input wire cache_call_begin,
+    input wire dont_use_next,
     input wire [31:0] pc,
 
     // output (face to CPU)
@@ -68,9 +69,17 @@ always @ (posedge clk) begin
 
     else begin
 
+        // donot use next
+
+        if (cache_call_begin && flag == 4'h0 && dont_use_next) begin
+            flag <= 4'h1;
+            cache_return_ready <= 1'b1;
+            cache_return_instruction <= 32'h0;
+        end
+
         // use self
 
-        if (cache_call_begin && flag == 4'h0 && judge_name) begin
+        if (cache_call_begin && flag == 4'h0 && judge_name && ~dont_use_next) begin
             flag <= 4'h1;
             cache_return_ready <= 1'b1;
             cache_return_instruction <= instruction_reg[pc[15:2]];
@@ -84,7 +93,7 @@ always @ (posedge clk) begin
 
         // call inst_interface
 
-        if (cache_call_begin && flag == 4'h0 && ~judge_name) begin
+        if (cache_call_begin && flag == 4'h0 && ~judge_name && ~dont_use_next) begin
             flag <= 4'h2;
             inst_interface_call_begin <= 1'b1;
             if (pc >= 32'ha000_0000 && pc <= 32'hbfff_ffff) begin

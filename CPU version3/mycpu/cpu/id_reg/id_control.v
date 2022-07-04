@@ -11,13 +11,13 @@ module id_control(
     input wire [5:0] funct,
 
     output wire ctl_pc_first_mux, // 0, or depends on alu_res
-    output wire [3:0] ctl_pc_second_mux, // [first, index, rs_data, break]
+    output wire [4:0] ctl_pc_second_mux, // [first, index, rs_data, break, recover]
 
     output wire [1:0] ctl_aluSrc1_mux, // aluSrc1: MUX2_32b, [rs_data, sa]
     output wire [2:0] ctl_aluSrc2_mux, // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
     output wire [13:0] ctl_alu_mux,
     output wire ctl_alu_op2,
-    output wire [3:0] ctl_alures_merge_mux, // alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+    output wire [4:0] ctl_alures_merge_mux, // alures_merge: MUX5_32b, [alu_res, PC+8, HI_rdata, LO_rdata, CP0_data]
     
     output wire ctl_dataRam_en,
     output wire ctl_dataRam_wen,
@@ -37,7 +37,13 @@ module id_control(
     output wire ctl_chosen_choke,
 
     output wire [2:0] ctl_data_size, // [1, 2, 4]
-    output wire ctl_data_zero_extend
+    output wire ctl_data_zero_extend,
+
+    output wire ctl_eret,
+    output wire ctl_exception,
+    output wire ctl_cp0_read,
+    output wire ctl_cp0_write,
+    output wire [4:0] ctl_cp0_exception_code
 );
 
 wire ADD, ADDI, ADDU, ADDIU, SUB, SUBU, SLT, SLTI, SLTU, SLTIU, DIV, DIVU, MUL, MULT, MULTU;
@@ -118,13 +124,13 @@ assign ctl_pc_first_mux =
 ;
 
 
-// pcValue: MUX4_32b, [first, index, rs_data, break]
+// pcValue: MUX4_32b, [first, index, rs_data, break, recover]
 assign ctl_pc_second_mux[0] =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     DIV | DIVU | MUL | MULT | MULTU | AND | ANDI | LUI | NOR | OR | ORI |
     XOR | XORI | SLL | SRL | SRA | SLLV | SRLV | SRAV | BEQ | BNE | BGEZ |
     BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL | MFHI | MFLO | MTHI | MTLO |
-    SYSCALL | LB | LBU | LH | LHU | LW | SB | SH | SW | ERET | MFC0 | MTC0 |
+    LB | LBU | LH | LHU | LW | SB | SH | SW | MFC0 | MTC0 |
     NOP
 ;
 assign ctl_pc_second_mux[1] =
@@ -134,7 +140,10 @@ assign ctl_pc_second_mux[2] =
     JR | JALR
 ;
 assign ctl_pc_second_mux[3] =
-    BREAK
+    BREAK | SYSCALL
+;
+assign ctl_pc_second_mux[4] =
+    ERET 
 ;
 
 
@@ -218,7 +227,7 @@ assign ctl_alu_op2 =
 ;
 
 
-// alures_merge: MUX4_32b, [alu_res, PC+8, HI_rdata, LO_rdata]
+// alures_merge: MUX5_32b, [alu_res, PC+8, HI_rdata, LO_rdata, CP0_data]
 assign ctl_alures_merge_mux[0] =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA |
@@ -232,6 +241,9 @@ assign ctl_alures_merge_mux[2] =
 ;
 assign ctl_alures_merge_mux[3] =
     MFLO
+;
+assign ctl_alures_merge_mux[4] =
+    MFC0
 ;
 
 
@@ -249,7 +261,7 @@ assign ctl_rf_wen =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     MUL | AND | ANDI | LUI | NOR | OR | ORI | XOR | XORI | SLL | SRL |
     SRA | SLLV | SRLV | SRAV | BGEZAL | BLTZAL | JAL | JALR | MFHI | MFLO |
-    LB | LBU | LH | LHU | LW
+    LB | LBU | LH | LHU | LW | MFC0
 ;
 
 
@@ -257,7 +269,7 @@ assign ctl_rf_wen =
 assign ctl_rfWriteData_mux[0] =
     ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
     MUL | AND | ANDI | NOR | OR | ORI | XOR | XORI | SLL | SRL | SRA | SLLV |
-    SRLV | SRAV | LUI | BGEZAL | BLTZAL | JAL | JALR | MFHI | MFLO
+    SRLV | SRAV | LUI | BGEZAL | BLTZAL | JAL | JALR | MFHI | MFLO | MFC0
 ;
 assign ctl_rfWriteData_mux[1] =
     LB | LBU | LH | LHU | LW
@@ -271,7 +283,7 @@ assign ctl_rfWriteAddr_mux[0] =
 ;
 assign ctl_rfWriteAddr_mux[1] =
     ADDI | ADDIU | SLTI | SLTIU | ANDI | LUI | ORI | XORI | LB | LBU |
-    LH | LHU | LW
+    LH | LHU | LW | MFC0
 ;
 assign ctl_rfWriteAddr_mux[2] =
     BGEZAL | BLTZAL | JAL | JALR
@@ -314,10 +326,10 @@ assign ctl_imm_zero_extend =
 assign ctl_jr_choke =
     JR | JALR
 ;
-
 assign ctl_chosen_choke =
     BEQ | BNE | BGEZ | BGTZ | BLEZ | BLTZ | BGEZAL | BLTZAL
 ;
+
 
 assign ctl_data_size[0] = 
     LB | LBU | SB
@@ -329,8 +341,33 @@ assign ctl_data_size[2] =
     LW | SW
 ;
 
+
 assign ctl_data_zero_extend = 
     LBU | LHU
 ;
+
+
+assign ctl_eret =
+    ERET
+;
+assign ctl_cp0_read =
+    MFC0
+;
+assign ctl_cp0_write =
+    MTC0
+;
+
+
+assign ctl_exception = 
+    SYSCALL | BREAK
+;
+
+
+assign ctl_cp0_exception_code =
+    SYSCALL ? 5'h8 : (
+        BREAK ? 5'h9 : 5'h0
+    )
+;
+
 
 endmodule
