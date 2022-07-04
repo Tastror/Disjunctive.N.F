@@ -206,6 +206,8 @@ wire IFID_ready_all;
 wire IDEXE_delete_rs, IDEXE_delete_rt, IDEXE_delete_jr, IDEXE_delete_chosen;
 wire IDEXE_delete_all;
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
+wire [2:0] ID_ctl_data_size;
+wire ID_ctl_data_zero_extend;
 
 // cp0 of ID
 wire [18:0] ID_VPN2;
@@ -262,6 +264,8 @@ wire EX_ctl_rf_wen;
 wire EX_ctl_low_wen;
 wire EX_ctl_high_wen;
 wire [1:0] EX_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
+wire [2:0] EX_ctl_data_size;
+wire EX_ctl_data_zero_extend;
 
 
 
@@ -301,6 +305,9 @@ wire [1:0] ME_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
 wire [4:0] ME_reg_waddr;
 wire [31:0] ME_low_wdata, ME_high_wdata;
 wire ME_mem_return_ready;
+wire ME_mem_lw_return_ready;
+wire [2:0] ME_ctl_data_size;
+wire ME_ctl_data_zero_extend;
 
 
 
@@ -402,7 +409,9 @@ pc_if_reg pc_if_reg_0(
     .cache_return_ready(IF_cache_return_ready),
     .cache_return_instruction(IF_cache_instruction),
     // input (face to mem)
-    .mem_return_ready(ME_mem_return_ready)
+    .mem_return_ready(ME_mem_return_ready),
+    .ex_lw_may_choke(~EX_ctl_dataRam_wen & EX_ctl_dataRam_en),
+    .mem_lw_return_ready(ME_mem_lw_return_ready)
 );
 
 inst_cache inst_cache_0(
@@ -494,7 +503,8 @@ id_control id_control_0(
     .ctl_rfWriteData_mux(ID_ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ID_ctl_rfWriteAddr_mux), .ctl_rf_wen(ID_ctl_rf_wen),
     .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux),
     .ctl_imm_zero_extend(ID_ctl_imm_zero_extend),
-    .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke)
+    .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke),
+    .ctl_data_size(ID_ctl_data_size), .ctl_data_zero_extend(ID_ctl_data_zero_extend)
 );
 
 regs regs_0(
@@ -605,8 +615,10 @@ WaitRegs ID_EXE_wait(
     .i5(ID_ctl_pc_first_mux), .o5(EX_ctl_pc_first_mux_old),
     .i6(ID_ctl_low_wen), .o6(EX_ctl_low_wen),
     .i7(ID_ctl_high_wen), .o7(EX_ctl_high_wen),
+    .i8(ID_ctl_data_zero_extend), .o8(EX_ctl_data_zero_extend),
     .i21(ID_ctl_low_mux), .o21(EX_ctl_low_mux),
     .i22(ID_ctl_high_mux), .o22(EX_ctl_high_mux),
+    .i31(ID_ctl_data_size), .o31(EX_ctl_data_size),
     .i51(ID_ctl_rfAluSrc1_mux), .o51(EX_ctl_rfAluSrc1_mux),
     .i52(ID_ctl_rfAluSrc2_mux), .o52(EX_ctl_rfAluSrc2_mux),
     .i61(ID_ctl_rfWriteData_mux), .o61(EX_ctl_rfWriteData_mux),
@@ -722,6 +734,8 @@ WaitRegs EXE_MEM_wait(
     .i5(EX_alu_zero), .o5(ME_alu_zero),
     .i6(EX_ctl_low_wen), .o6(ME_ctl_low_wen),
     .i7(EX_ctl_high_wen), .o7(ME_ctl_high_wen),
+    .i8(EX_ctl_data_zero_extend), .o8(ME_ctl_data_zero_extend),
+    .i31(EX_ctl_data_size), .o31(ME_ctl_data_size),
     .i61(EX_ctl_rfWriteData_mux), .o61(ME_ctl_rfWriteData_mux),
     .i81(EX_reg_waddr), .o81(ME_reg_waddr),
     .i321(EX_pc_plus_4_plus_4imm), .o321(ME_pc_plus_4_plus_4imm),
@@ -753,11 +767,12 @@ data_cache data_cache_0(
 
     // input (face to CPU)
     .wen(ME_ctl_dataRam_wen),
-    .size(4),
+    .size(ME_ctl_data_size),
     .addr(ME_dram_waddr),
     // .addr(ME_dram_waddr_after_mmu),
     .data(ME_dram_wdata),
     .cache_call_begin(ME_ctl_dataRam_en),
+    .zero_extend(ME_ctl_data_zero_extend),
     
     // output (face to CPU)
     .cache_return_ready(ME_data_cache_return_ready),
@@ -861,8 +876,9 @@ assign RREADY = I_RREADY | D_RREADY;
 //     .res(ME_dataram_rdata)
 // );
 
-wire MEWB_begin_save, MEWB_save, MEWB_ready_go;
+wire MEWB_begin_save, MEWB_save, MEWB_ready_go, MEWB_lw;
 reg MEWB_last_begin_save, MEWB_last_save, MEWB_last_ready_go;
+
 always @ (posedge clk) begin
     if (reset) begin
         MEWB_last_begin_save <= 1;
@@ -875,17 +891,19 @@ always @ (posedge clk) begin
         MEWB_last_ready_go <= MEWB_ready_go;
     end
 end
-assign MEWB_begin_save = (ME_ctl_dataRam_en) ? ME_ctl_dataRam_en : 1'b1;
+assign MEWB_lw = ME_data_interface_enable & ~ME_write_enable;
+assign MEWB_begin_save = 1'b1;
 assign MEWB_save = (ME_ctl_dataRam_en | ~MEWB_last_save) ? ME_data_interface_return_ready : 1'b1;
 assign MEWB_ready_go = (ME_ctl_dataRam_en | ~MEWB_last_ready_go) ? ME_data_interface_return_ready : 1'b1;
 assign ME_mem_return_ready = MEWB_begin_save & MEWB_save & MEWB_ready_go;
+assign ME_mem_lw_return_ready = ME_mem_return_ready & MEWB_lw;
 
 WaitRegs MEM_WB_wait(
     .clk(clk), .reset(reset), .enable(1),
     .delete(0),
-    .begin_save(MEWB_begin_save),
-    .addi_save(MEWB_save),
-    .end_save(MEWB_ready_go),
+    .begin_save(MEWB_last_save),
+    .addi_save(MEWB_lw ? ME_mem_lw_return_ready : MEWB_save),
+    .end_save(MEWB_lw ? ME_mem_lw_return_ready : MEWB_ready_go),
     .ready_go(1),
     // in-out pair
     .i3(ME_ctl_rf_wen), .o3(WB_ctl_rf_wen),

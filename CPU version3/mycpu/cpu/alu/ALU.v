@@ -77,29 +77,55 @@ wire [31:0] leq_result_zero;
 wire [31:0] less_unsigned_result;
 wire [31:0] lui_result;
 
-wire all_pos, pos_neg, neg_pos, all_neg;
+wire [31:0] pos_src1;
+wire [31:0] pos_src2;
+wire [31:0] divQuotient;
+wire [31:0] divRemainder;
+wire [63:0] mulAns;
+
+// judge signed
+wire a1_sign, a2_sign, all_pos, pos_neg, neg_pos, all_neg;
+assign a1_sign = alu_src1[31];
+assign a2_sign = alu_src2[31];
 assign all_pos = ~alu_src1[31] & ~alu_src2[31];
 assign pos_neg = ~alu_src1[31] & alu_src2[31];
 assign neg_pos = alu_src1[31] & ~alu_src2[31];
 assign all_neg = alu_src1[31] & alu_src2[31];
+// judge over
+
+assign pos_src1 = (a1_sign) ? (~alu_src1 + 1) : alu_src1;
+assign pos_src2 = (a2_sign) ? (~alu_src2 + 1) : alu_src2;
 
 assign add_result = alu_src1 + alu_src2;
 assign addu_result = alu_src1 + alu_src2;
 assign sub_result = alu_src1 - alu_src2;
 assign subu_result = alu_src1 - alu_src2;
-assign {mul_result_high, mul_result} = alu_src1 * alu_src2;
+
+// mul with signed
+assign mulAns = pos_src1 * pos_src2;
+assign {mul_result_high, mul_result} =
+    ((a1_sign ^ a2_sign == 1'b1) ? (~mulAns[63:0] + 1) : mulAns);
+
+// div with signed
+assign divQuotient = pos_src1 / pos_src2;
+assign divRemainder = pos_src1 % pos_src2;
+assign div_result =
+    |pos_src2 == 1'b0 ? 32'h0 :
+    ((a1_sign ^ a2_sign == 1'b1) ? (~divQuotient[31:0] + 1) : divQuotient);
+assign div_result_high =
+    |pos_src2 == 1'b0 ? 32'h0 :
+    ((a1_sign == 1'b1) ? (~divRemainder[31:0] + 1) : divRemainder);
+
 assign {mulu_result_high, mulu_result} = alu_src1 * alu_src2;
-assign div_result = alu_src1 / alu_src2;
 assign divu_result = alu_src1 / alu_src2;
-assign div_result_high = alu_src1 % alu_src2;
 assign divu_result_high = alu_src1 % alu_src2;
 assign and_result = alu_src1 & alu_src2;
 assign or_result = alu_src1 | alu_src2;
 assign nor_result = ~or_result;
 assign xor_result = alu_src1 ^ alu_src2;
-assign sll_result = alu_src2 << alu_src1;
-assign srl_result = alu_src2 >> alu_src1;
-assign sra_result = $signed(alu_src2) >>> alu_src1;
+assign sll_result = alu_src2 << alu_src1[4:0];
+assign srl_result = alu_src2 >> alu_src1[4:0];
+assign sra_result = $signed(alu_src2) >>> alu_src1[4:0];
 assign less_result =
     all_pos & (alu_src1 < alu_src2) |
     pos_neg & 0 |
