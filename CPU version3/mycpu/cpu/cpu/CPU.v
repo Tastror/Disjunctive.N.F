@@ -206,6 +206,8 @@ wire IFID_ready_all;
 wire IDEXE_delete_rs, IDEXE_delete_rt, IDEXE_delete_jr, IDEXE_delete_chosen;
 wire IDEXE_delete_all;
 wire ID_ctl_jr_choke, ID_ctl_chosen_choke;
+wire [2:0] ID_ctl_data_size;
+wire ID_ctl_data_zero_extend;
 
 // cp0 of ID
 wire [18:0] ID_VPN2;
@@ -262,6 +264,8 @@ wire EX_ctl_rf_wen;
 wire EX_ctl_low_wen;
 wire EX_ctl_high_wen;
 wire [1:0] EX_ctl_rfWriteData_mux; // MUX2_32b, [alures_merge, ramdata]
+wire [2:0] EX_ctl_data_size;
+wire EX_ctl_data_zero_extend;
 
 
 
@@ -302,6 +306,8 @@ wire [4:0] ME_reg_waddr;
 wire [31:0] ME_low_wdata, ME_high_wdata;
 wire ME_mem_return_ready;
 wire ME_mem_lw_return_ready;
+wire [2:0] ME_ctl_data_size;
+wire ME_ctl_data_zero_extend;
 
 
 
@@ -497,7 +503,8 @@ id_control id_control_0(
     .ctl_rfWriteData_mux(ID_ctl_rfWriteData_mux), .ctl_rfWriteAddr_mux(ID_ctl_rfWriteAddr_mux), .ctl_rf_wen(ID_ctl_rf_wen),
     .ctl_low_wen(ID_ctl_low_wen), .ctl_high_wen(ID_ctl_high_wen), .ctl_low_mux(ID_ctl_low_mux), .ctl_high_mux(ID_ctl_high_mux),
     .ctl_imm_zero_extend(ID_ctl_imm_zero_extend),
-    .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke)
+    .ctl_jr_choke(ID_ctl_jr_choke), .ctl_chosen_choke(ID_ctl_chosen_choke),
+    .ctl_data_size(ID_ctl_data_size), .ctl_data_zero_extend(ID_ctl_data_zero_extend)
 );
 
 regs regs_0(
@@ -608,8 +615,10 @@ WaitRegs ID_EXE_wait(
     .i5(ID_ctl_pc_first_mux), .o5(EX_ctl_pc_first_mux_old),
     .i6(ID_ctl_low_wen), .o6(EX_ctl_low_wen),
     .i7(ID_ctl_high_wen), .o7(EX_ctl_high_wen),
+    .i8(ID_ctl_data_zero_extend), .o8(EX_ctl_data_zero_extend),
     .i21(ID_ctl_low_mux), .o21(EX_ctl_low_mux),
     .i22(ID_ctl_high_mux), .o22(EX_ctl_high_mux),
+    .i31(ID_ctl_data_size), .o31(EX_ctl_data_size),
     .i51(ID_ctl_rfAluSrc1_mux), .o51(EX_ctl_rfAluSrc1_mux),
     .i52(ID_ctl_rfAluSrc2_mux), .o52(EX_ctl_rfAluSrc2_mux),
     .i61(ID_ctl_rfWriteData_mux), .o61(EX_ctl_rfWriteData_mux),
@@ -725,6 +734,8 @@ WaitRegs EXE_MEM_wait(
     .i5(EX_alu_zero), .o5(ME_alu_zero),
     .i6(EX_ctl_low_wen), .o6(ME_ctl_low_wen),
     .i7(EX_ctl_high_wen), .o7(ME_ctl_high_wen),
+    .i8(EX_ctl_data_zero_extend), .o8(ME_ctl_data_zero_extend),
+    .i31(EX_ctl_data_size), .o31(ME_ctl_data_size),
     .i61(EX_ctl_rfWriteData_mux), .o61(ME_ctl_rfWriteData_mux),
     .i81(EX_reg_waddr), .o81(ME_reg_waddr),
     .i321(EX_pc_plus_4_plus_4imm), .o321(ME_pc_plus_4_plus_4imm),
@@ -756,11 +767,12 @@ data_cache data_cache_0(
 
     // input (face to CPU)
     .wen(ME_ctl_dataRam_wen),
-    .size(4),
+    .size(ME_ctl_data_size),
     .addr(ME_dram_waddr),
     // .addr(ME_dram_waddr_after_mmu),
     .data(ME_dram_wdata),
     .cache_call_begin(ME_ctl_dataRam_en),
+    .zero_extend(ME_ctl_data_zero_extend),
     
     // output (face to CPU)
     .cache_return_ready(ME_data_cache_return_ready),

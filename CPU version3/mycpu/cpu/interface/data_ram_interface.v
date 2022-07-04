@@ -199,7 +199,31 @@ always @(posedge clk) begin
             AWVALID <= 1'h0;
             WID <= 4'h1;
             WDATA <= data_interface_wdata;
-            WSTRB <= 4'b1111;
+            if (write_size[0]) begin
+                if (data_interface_waddr[1:0] == 2'b00) begin
+                    WSTRB <= 4'b0001;
+                end
+                else if (data_interface_waddr[1:0] == 2'b01) begin
+                    WSTRB <= 4'b0010;
+                end
+                else if (data_interface_waddr[1:0] == 2'b10) begin
+                    WSTRB <= 4'b0100;
+                end
+                else begin
+                    WSTRB <= 4'b1000;
+                end
+            end
+            else if (write_size[1]) begin
+                if (data_interface_waddr[1]) begin
+                    WSTRB <= 4'b1100;
+                end
+                else begin
+                    WSTRB <= 4'b0011;
+                end
+            end
+            else begin
+                WSTRB <= 4'b1111;
+            end
             WLAST <= 1'h1;
             WVALID <= 1'h1;
         end

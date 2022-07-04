@@ -34,7 +34,10 @@ module id_control(
     output wire ctl_imm_zero_extend,
 
     output wire ctl_jr_choke,
-    output wire ctl_chosen_choke
+    output wire ctl_chosen_choke,
+
+    output wire [2:0] ctl_data_size, // [1, 2, 4]
+    output wire ctl_data_zero_extend
 );
 
 wire ADD, ADDI, ADDU, ADDIU, SUB, SUBU, SLT, SLTI, SLTU, SLTIU, DIV, DIVU, MUL, MULT, MULTU;
@@ -316,5 +319,18 @@ assign ctl_chosen_choke =
     BEQ | BNE | BGEZ | BGTZ | BLEZ | BLTZ | BGEZAL | BLTZAL
 ;
 
+assign ctl_data_size[0] = 
+    LB | LBU | SB
+;
+assign ctl_data_size[1] =
+    LH | LHU | SH
+;
+assign ctl_data_size[2] =
+    LW | SW
+;
+
+assign ctl_data_zero_extend = 
+    LBU | LHU
+;
 
 endmodule

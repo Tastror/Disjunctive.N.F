@@ -123,8 +123,8 @@ assign and_result = alu_src1 & alu_src2;
 assign or_result = alu_src1 | alu_src2;
 assign nor_result = ~or_result;
 assign xor_result = alu_src1 ^ alu_src2;
-assign sll_result = alu_src2 << alu_src1;
-assign srl_result = alu_src2 >> alu_src1;
+assign sll_result = alu_src2 << alu_src1[4:0];
+assign srl_result = alu_src2 >> alu_src1[4:0];
 assign sra_result = $signed(alu_src2) >>> alu_src1[4:0];
 assign less_result =
     all_pos & (alu_src1 < alu_src2) |

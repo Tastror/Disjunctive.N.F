@@ -98,6 +98,7 @@ module WaitRegs(
     input wire i8,
     input wire [1:0] i21,
     input wire [1:0] i22,
+    input wire [2:0] i31,
     input wire [4:0] i51,
     input wire [4:0] i52,
     input wire [5:0] i61,
@@ -138,6 +139,7 @@ module WaitRegs(
     output wire o8,
     output wire [1:0] o21,
     output wire [1:0] o22,
+    output wire [2:0] o31,
     output wire [4:0] o51,
     output wire [4:0] o52,
     output wire [5:0] o61,
@@ -175,6 +177,8 @@ reg
     s1, s2, s3, s4, s5, s6, s7, s8;
 reg [1:0]
     s21, s22;
+reg [2:0]
+    s31;
 reg [4:0]
     s51, s52;
 reg [5:0]
@@ -197,6 +201,7 @@ begin
         s1 <= 0; s2 <= 0; s3 <= 0; s4 <= 0;
         s5 <= 0; s6 <= 0; s7 <= 0; s8 <= 0;
         s21 <= 2'd0; s22 <= 2'd0;
+        s31 <= 3'd0;
         s51 <= 5'd0; s52 <= 5'd0;
         s61 <= 6'd0; s62 <= 6'd0;
         s81 <= 8'd0; s82 <= 8'd0; s83 <= 8'd0; s84 <= 8'd0;
@@ -216,6 +221,7 @@ begin
         s1 <= 0; s2 <= 0; s3 <= 0; s4 <= 0;
         s5 <= 0; s6 <= 0; s7 <= 0; s8 <= 0;
         s21 <= 2'd0; s22 <= 2'd0;
+        s31 <= 3'd0;
         s51 <= 5'd0; s52 <= 5'd0;
         s61 <= 6'd0; s62 <= 6'd0;
         s81 <= 8'd0; s82 <= 8'd0; s83 <= 8'd0; s84 <= 8'd0;
@@ -232,6 +238,7 @@ begin
             s1 <= i1; s2 <= i2; s3 <= i3; s4 <= i4;
             s5 <= i5; s6 <= i6; s7 <= i7; s8 <= i8;
             s21 <= i21; s22 <= i22;
+            s31 <= i31;
             s51 <= i51; s52 <= i52;
             s61 <= i61; s62 <= i62;
             s81 <= i81; s82 <= i82; s83 <= i83; s84 <= i84;
@@ -272,6 +279,7 @@ assign o7 = valid ? s7 : 0;
 assign o8 = valid ? s8 : 0;
 assign o21 = valid ? s21 : 0;
 assign o22 = valid ? s22 : 0;
+assign o31 = valid ? s31 : 0;
 assign o51 = valid ? s51 : 0;
 assign o52 = valid ? s52 : 0;
 assign o61 = valid ? s61 : 0;
