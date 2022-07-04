@@ -162,18 +162,33 @@ module data_cache(
 // lb, lh, lw
 wire [7:0] pre_byte;
 wire [15:0] pre_halfword;
-assign pre_byte = data_interface_raddr[1:0] == 2'b00 ? data_interface_rdata[7:0] :
-                  (data_interface_raddr[1:0] == 2'b01 ? data_interface_rdata[15:8] :
-                  (data_interface_raddr[1:0] == 2'b10 ? data_interface_rdata[23:16] :
-                  data_interface_rdata[31:24]));
+assign pre_byte = data_interface_raddr[1:0] == 2'b00 ?
+                    data_interface_rdata[7:0] : (
+                        data_interface_raddr[1:0] == 2'b01 ?
+                        data_interface_rdata[15:8] : (
+                            data_interface_raddr[1:0] == 2'b10 ?
+                            data_interface_rdata[23:16] :
+                            data_interface_rdata[31:24]
+                        )
+                    );
 assign pre_halfword = data_interface_raddr[1] ? data_interface_rdata[31:16] : data_interface_rdata[15:0];
-assign cache_return_rdata = tmp_size[1] ? (zero_extend ? {24'h0, pre_byte} : {{24{pre_byte[7]}}, pre_byte}) :
-                            tmp_size[1] ? (zero_extend ? {16'h0, pre_halfword} : {{16{pre_halfword[15]}}, pre_halfword}) :
-                            data_interface_rdata;
+assign cache_return_rdata = tmp_size[0] ? (
+                                tmp_zero_extend ?
+                                {24'h0, pre_byte} :
+                                {{24{pre_byte[7]}}, pre_byte}
+                            ) : (
+                                tmp_size[1] ? (
+                                    tmp_zero_extend ?
+                                    {16'h0, pre_halfword} :
+                                    {{16{pre_halfword[15]}}, pre_halfword}
+                                ) :
+                                data_interface_rdata
+                            );
 assign cache_return_ready = data_interface_return_ready;
 
 reg [3:0] flag, test;
 reg [2:0] tmp_size;
+reg tmp_zero_extend;
 
 always @ (posedge clk) begin
     if (reset) begin
@@ -184,6 +199,7 @@ always @ (posedge clk) begin
         read_size <= 0;
         write_size <= 0;
         tmp_size <= 0;
+        tmp_zero_extend <= 0;
         data_interface_raddr <= 0;
         data_interface_waddr <= 0;
         data_interface_wdata <= 0;
@@ -196,6 +212,7 @@ always @ (posedge clk) begin
             data_interface_enable <= 1;
             read_size <= size;
             tmp_size <= size;
+            tmp_zero_extend <= zero_extend;
             if (addr >= 32'h8000_0000 && addr <= 32'h9fff_ffff) begin
                 data_interface_raddr <= addr - 32'h8000_0000;
             end
@@ -217,11 +234,21 @@ always @ (posedge clk) begin
             if (addr >= 32'ha000_0000 && addr <= 32'hbfff_ffff)
                 data_interface_waddr <= addr - 32'ha000_0000;
             // data_interface_waddr <= {addr[31:14], addr[13:6], 6'b0};
-            if (tmp_size[0]) begin
-                data_interface_wdata <= {24'h0, data[7:0]};
+            if (size[0]) begin
+                if (addr[1:0] == 2'b00)
+                    data_interface_wdata <= {24'h0, data[7:0]};
+                else if (addr[1:0] == 2'b01)
+                    data_interface_wdata <= {16'h0, data[7:0], 8'h0};
+                else if (addr[1:0] == 2'b10)
+                    data_interface_wdata <= {8'h0, data[7:0], 16'h0};
+                else if (addr[1:0] == 2'b11)
+                    data_interface_wdata <= {data[7:0], 24'h0};
             end 
-            else if (tmp_size[1]) begin
-                data_interface_wdata <= {16'h0, data[15:0]};
+            else if (size[1]) begin
+               if (addr[1] == 1'b0)
+                    data_interface_wdata <= {16'h0, data[15:0]};
+                else if (addr[1] == 1'b1)
+                    data_interface_wdata <= {data[15:0], 16'h0};
             end
             else begin
                 data_interface_wdata <= data;
@@ -241,6 +268,7 @@ always @ (posedge clk) begin
             read_size <= 0;
             write_size <= 0;
             tmp_size <= 0;
+            tmp_zero_extend <= 0;
             data_interface_raddr <= 0;
             data_interface_waddr <= 0;
             data_interface_wdata <= 0;
