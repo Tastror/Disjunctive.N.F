@@ -6,10 +6,15 @@ module ALU(
     input wire alu_op2,
     input wire [31:0] alu_src1,
     input wire [31:0] alu_src2,
+    input wire alu_op_load_store, // 0: store, 1: load
+    input wire [2:0] alu_data_size,
     // output
     output wire [31:0] alu_result,
     output wire [31:0] alu_result_high,
-    output wire alu_zero
+    output wire alu_zero,
+    output wire alu_exception,
+    output wire [4:0] alu_exception_code,
+    output wire [31:0] alu_BadVAddr_addr
 );
 
 //              0  1  2  3  4  5  6  7   8   9  10  11 12  13
@@ -82,6 +87,8 @@ wire [31:0] pos_src2;
 wire [31:0] divQuotient;
 wire [31:0] divRemainder;
 wire [63:0] mulAns;
+
+wire exception_badAddr, exception_overflow;
 
 // judge signed
 wire a1_sign, a2_sign, all_pos, pos_neg, neg_pos, all_neg;
@@ -190,5 +197,18 @@ assign alu_zero =
     {32{op_great}} & great_result_zero |
     {32{op_leq}} & leq_result_zero
 ;
+
+// wrong address
+assign exception_badAddr =  (alu_data_size[1] & alu_result[0] != 1'b0) |
+                            (alu_data_size[2] & alu_result[1:0] != 2'b0);
+// overflow
+assign exception_overflow = (all_neg & alu_result[31] == 1'b0) |
+                            (all_pos & alu_result[31] == 1'b1);
+// merge to exception
+assign alu_exception = exception_badAddr | exception_overflow;
+assign alu_exception_code = exception_badAddr ? (
+                                alu_op_load_store ? 5'04 : 5'h05
+                            ) : ( exception_overflow ? 5'0c : 5'h0);
+assign alu_BadVAddr_addr = exception_badAddr ? alu_result : 32'h0;
 	
 endmodule
