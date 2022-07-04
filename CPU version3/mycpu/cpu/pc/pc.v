@@ -11,7 +11,7 @@ module pc_if_reg(
     // input
     input wire pc_call_begin,
     input wire pc_next_update_begin,
-    input wire EX_ctl_pc_first_mux,
+    input wire [1:0] EX_ctl_pc_first_mux,
     input wire [4:0] ID_ctl_pc_second_mux,
     input wire [31:0] EX_pc_plus_4_plus_4imm,
     input wire [25:0] ID_index,
@@ -46,6 +46,20 @@ reg [31:0] pc;
 reg [3:0] flag1, flag2;
 reg flag3, ready_flag;
 reg [31:0] buff_instruction;
+reg [4:0] tmp_ID_ctl_pc_second_mux;
+reg [1:0] tmp_EX_ctl_pc_first_mux;
+reg tmp_first_mux_done, tmp_second_mux_done, tmp_update_done;
+
+wire [4:0] all_ID_ctl_pc_second_mux;
+wire [1:0] all_EX_ctl_pc_first_mux;
+wire first_mux_done, second_mux_done, update_done;
+
+assign update_done = tmp_update_done | pc_next_update_begin;
+assign first_mux_done = tmp_first_mux_done | |EX_ctl_pc_first_mux;
+assign second_mux_done = tmp_second_mux_done | |ID_ctl_pc_second_mux;
+assign all_EX_ctl_pc_first_mux = EX_ctl_pc_first_mux;
+assign all_ID_ctl_pc_second_mux = ID_ctl_pc_second_mux;
+
 
 assign IF_pc_out = pc;
 assign IF_pc_plus_4 = pc + 32'h4;
@@ -63,6 +77,11 @@ always @ (posedge clk) begin
         buff_instruction <= 4'h0;
         cache_call_begin <= 1'b0;
         dont_use_next <= 1'b0;
+        tmp_EX_ctl_pc_first_mux <= 0;
+        tmp_ID_ctl_pc_second_mux <= 0;
+        tmp_first_mux_done <= 0;
+        tmp_second_mux_done <= 0;
+        tmp_update_done <= 0;
     end
 
     else if (~enable) begin
@@ -124,26 +143,50 @@ always @ (posedge clk) begin
             buff_instruction <= 0;
         end
 
-
         if (flag2 == 4'h5 && pc_next_update_begin) begin
+            tmp_update_done <= 1;
+        end
+
+        if (flag2 == 4'h5 && |EX_ctl_pc_first_mux) begin
+            tmp_EX_ctl_pc_first_mux <= EX_ctl_pc_first_mux;
+            tmp_first_mux_done <= 1;
+        end
+
+        if (flag2 == 4'h5 && |ID_ctl_pc_second_mux) begin
+            tmp_ID_ctl_pc_second_mux <= ID_ctl_pc_second_mux;
+            tmp_second_mux_done <= 1;
+        end
+
+        if (flag2 == 4'h5 && update_done && first_mux_done && second_mux_done) begin
             flag2 <= 4'h4;
-            if (ID_ctl_pc_second_mux[1])
-                    pc_next <= {{IF_pc_plus_4[31:28]}, {ID_index[25:0]}, {2'b00}};
-                else if (ID_ctl_pc_second_mux[2])
-                    pc_next <= ID_may_choke_rs_data;
-                else if (ID_ctl_pc_second_mux[3]) begin
-                    pc_next <= PC_BREAK;
-                    dont_use_next <= 1'b1;
-                end
-                else if (ID_ctl_pc_second_mux[4]) begin
-                    pc_next <= pc_recover;
-                    dont_use_next <= 1'b1;
-                end
+            if (all_ID_ctl_pc_second_mux[0]) begin
+                if (all_EX_ctl_pc_first_mux[0])
+                    pc_next <= IF_pc_plus_4;
+                else if (all_EX_ctl_pc_first_mux[1])
+                    pc_next <= EX_pc_plus_4_plus_4imm;
                 else
-                    if (EX_ctl_pc_first_mux)
-                        pc_next <= EX_pc_plus_4_plus_4imm;
-                    else
-                        pc_next <= IF_pc_plus_4;
+                    ; // wrong here
+            end
+            else if (all_ID_ctl_pc_second_mux[1])
+                pc_next <= {{IF_pc_plus_4[31:28]}, {ID_index[25:0]}, {2'b00}};
+            else if (all_ID_ctl_pc_second_mux[2])
+                pc_next <= ID_may_choke_rs_data;
+            else if (all_ID_ctl_pc_second_mux[3]) begin
+                pc_next <= PC_BREAK;
+                dont_use_next <= 1'b1;
+            end
+            else if (all_ID_ctl_pc_second_mux[4]) begin
+                pc_next <= pc_recover;
+                dont_use_next <= 1'b1;
+            end
+            else
+                ; // wrong here
+            
+            tmp_EX_ctl_pc_first_mux <= 0;
+            tmp_ID_ctl_pc_second_mux <= 0;
+            tmp_first_mux_done <= 0;
+            tmp_second_mux_done <= 0;
+            tmp_update_done <= 0;
         end
 
     end

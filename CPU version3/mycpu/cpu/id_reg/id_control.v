@@ -10,8 +10,8 @@ module id_control(
     input wire [4:0] sa,
     input wire [5:0] funct,
 
-    output wire ctl_pc_first_mux, // 0, or depends on alu_res
-    output wire [4:0] ctl_pc_second_mux, // [first, index, rs_data, break, recover]
+    output wire [1:0] ctl_pc_first_mux, // [PC+4, PC+4+4imm]
+    output wire [4:0] ctl_pc_second_mux, // [depend-on-first, index, rs_data, break, recover]
 
     output wire [1:0] ctl_aluSrc1_mux, // aluSrc1: MUX2_32b, [rs_data, sa]
     output wire [2:0] ctl_aluSrc2_mux, // aluSrc1: MUX3_32b, [rt_data, imm_32, 0]
@@ -119,7 +119,15 @@ assign NOP = (opcode == 6'b000000) & (rs == 5'b00000) & (rt == 5'b00000) & (rd =
 
 
 
-assign ctl_pc_first_mux =
+assign ctl_pc_first_mux[0] =
+    ADD | ADDI | ADDU | ADDIU | SUB | SUBU | SLT | SLTI | SLTU | SLTIU |
+    DIV | DIVU | MUL | MULT | MULTU | AND | ANDI | LUI | NOR | OR | ORI |
+    XOR | XORI | SLL | SRL | SRA | SLLV | SRLV | SRAV | MFHI | MFLO |
+    MTHI | MTLO | LB | LBU | LH | LHU | LW | SB | SH | SW | MFC0 | MTC0 |
+    NOP
+;
+
+assign ctl_pc_first_mux[1] =
     BEQ | BNE | BGEZ | BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL
 ;
 
@@ -130,8 +138,7 @@ assign ctl_pc_second_mux[0] =
     DIV | DIVU | MUL | MULT | MULTU | AND | ANDI | LUI | NOR | OR | ORI |
     XOR | XORI | SLL | SRL | SRA | SLLV | SRLV | SRAV | BEQ | BNE | BGEZ |
     BLTZ | BGTZ | BLEZ | BGEZAL | BLTZAL | MFHI | MFLO | MTHI | MTLO |
-    LB | LBU | LH | LHU | LW | SB | SH | SW | MFC0 | MTC0 |
-    NOP
+    LB | LBU | LH | LHU | LW | SB | SH | SW | MFC0 | MTC0 | NOP
 ;
 assign ctl_pc_second_mux[1] =
     J | JAL

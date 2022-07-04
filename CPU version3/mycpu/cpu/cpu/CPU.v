@@ -182,7 +182,7 @@ wire [25:0] ID_index;
 wire [15:0] ID_code;
 wire [2:0] ID_sel;
     // things that will transport to next place
-wire ID_ctl_pc_first_mux;
+wire [1:0] ID_ctl_pc_first_mux;
 wire [4:0] ID_ctl_pc_second_mux; // MUX5_32b, [first, index, rs_data, break, recover]
 wire [31:0] ID_reg_rdata_rs, ID_reg_rdata_rt;
 wire [31:0] ID_may_choke_rs_data;
@@ -260,8 +260,8 @@ wire [1:0] EX_ctl_low_mux;  // MUX2_32b, [alu_res, rs_data]
 wire [31:0] EX_low_wdata;
 wire [1:0] EX_ctl_high_mux;  // MUX2_32b, [alu_res_high, rs_data]
 wire [31:0] EX_high_wdata;
-wire EX_ctl_pc_first_mux_old;
-wire EX_ctl_pc_first_mux;
+wire [1:0] EX_ctl_pc_first_mux_old;
+wire [1:0] EX_ctl_pc_first_mux;
 wire EX_ctl_dataRam_en;
 wire EX_ctl_dataRam_wen;
     // things that will transport to next place
@@ -607,7 +607,6 @@ WaitRegs ID_EXE_wait(
     .i2(ID_ctl_dataRam_wen), .o2(EX_ctl_dataRam_wen),
     .i3(ID_ctl_rf_wen), .o3(EX_ctl_rf_wen),
     .i4(ID_ctl_alu_op2), .o4(EX_ctl_alu_op2),
-    .i5(ID_ctl_pc_first_mux), .o5(EX_ctl_pc_first_mux_old),
     .i6(ID_ctl_low_wen), .o6(EX_ctl_low_wen),
     .i7(ID_ctl_high_wen), .o7(EX_ctl_high_wen),
     .i8(ID_ctl_data_zero_extend), .o8(EX_ctl_data_zero_extend),
@@ -622,6 +621,7 @@ WaitRegs ID_EXE_wait(
     .i82(ID_rd), .o82(EX_rd),
     .i83(ID_rs), .o83(EX_rs),
     .i84(ID_sa), .o84(EX_sa),
+    .i161(ID_ctl_pc_first_mux), .o161(EX_ctl_pc_first_mux_old),
     .i162(ID_ctl_alures_merge_mux), .o162(EX_ctl_alures_merge_mux),
     .i321(ID_pc_plus_4), .o321(EX_pc_plus_4),
     .i322(ID_reg_rdata_rs), .o322(EX_rs_data_old),
@@ -708,7 +708,8 @@ MUX2_32b MUX2_32b_low( .oneHot(EX_ctl_low_mux),
 MUX2_32b MUX2_32b_high( .oneHot(EX_ctl_high_mux),
     .in0(EX_alu_res_high), .in1(EX_rs_data), .out(EX_high_wdata) );
 
-assign EX_ctl_pc_first_mux = (EX_alu_res[0]) & EX_ctl_pc_first_mux_old;
+assign EX_ctl_pc_first_mux[0] = ~EX_alu_res[0] | EX_ctl_pc_first_mux_old[0];
+assign EX_ctl_pc_first_mux[1] = EX_alu_res[0] & EX_ctl_pc_first_mux_old[1];
 
 cp0 cp0_reg_0(
     // input
